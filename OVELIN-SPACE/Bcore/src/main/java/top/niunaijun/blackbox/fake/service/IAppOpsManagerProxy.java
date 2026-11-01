@@ -183,35 +183,51 @@ public class IAppOpsManagerProxy extends BinderInvocationStub {
     public static class NoteOp extends MethodHook {
         @Override
         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
-            try {
-                int op = (int) args[0];
-                String name = getOpPublicName(op);
-                if (name != null && (name.contains("RECORD_AUDIO") || name.contains("AUDIO") || name.contains("MICROPHONE"))) {
-                    Slog.d(TAG, "AppOps NoteOp: Allowing RECORD_AUDIO operation: " + name);
-                    return AppOpsManager.MODE_ALLOWED;
-                }
-            } catch (Throwable ignored) {
-            }
-            return method.invoke(who, args);
+            
+            
+            
+            Slog.d(TAG, "AppOps NoteOp: Bypassing system check, allowing operation");
+            return allowedResultFor(method);
         }
     }
 
+    
+    
+    
     
     @ProxyMethod("noteOpNoThrow")
     public static class NoteOpNoThrow extends MethodHook {
         @Override
         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
-            try {
-                int op = (int) args[0];
-                String name = getOpPublicName(op);
-                if (name != null && (name.contains("RECORD_AUDIO") || name.contains("AUDIO") || name.contains("MICROPHONE"))) {
-                    Slog.d(TAG, "AppOps NoteOpNoThrow: Allowing RECORD_AUDIO operation: " + name);
-                    return AppOpsManager.MODE_ALLOWED;
-                }
-            } catch (Throwable ignored) {
-            }
-            return method.invoke(who, args);
+            Slog.d(TAG, "AppOps NoteOpNoThrow: Bypassing system check, allowing operation");
+            return allowedResultFor(method);
         }
+    }
+
+    
+    
+    private static Object allowedResultFor(Method method) {
+        Class<?> returnType = method.getReturnType();
+        if (returnType == int.class || returnType == Integer.class) {
+            return AppOpsManager.MODE_ALLOWED;
+        }
+        
+        
+        try {
+            Class<?> syncNotedAppOpClass = Class.forName("android.app.SyncNotedAppOp");
+            if (returnType.isAssignableFrom(syncNotedAppOpClass)) {
+                try {
+                    return syncNotedAppOpClass
+                            .getConstructor(int.class, String.class)
+                            .newInstance(AppOpsManager.MODE_ALLOWED, (String) null);
+                } catch (NoSuchMethodException e) {
+                    return syncNotedAppOpClass.getConstructor(int.class).newInstance(AppOpsManager.MODE_ALLOWED);
+                }
+            }
+        } catch (Throwable ignored) {
+            
+        }
+        return AppOpsManager.MODE_ALLOWED;
     }
 
     private static boolean isMediaStorageOrAudioOp(String opPublicNameOrStr) {
