@@ -1,5 +1,6 @@
 package top.niunaijun.blackbox.core.system.pm;
 
+import java.io.File;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -312,8 +313,12 @@ public class PackageManagerCompat {
             ai.metaData = p.mAppMetaData;
         }
         ai.dataDir = BEnvironment.getDataDir(ai.packageName, userId).getAbsolutePath();
-        if (!p.installOption.isFlag(InstallOption.FLAG_SYSTEM)) {
-            ai.nativeLibraryDir = BEnvironment.getAppLibDir(ai.packageName).getAbsolutePath();
+        // OVELIN SPACE: apps installed "by system" often keep their libraries inside split APKs
+        // (extractNativeLibs=false), so the real nativeLibraryDir is empty. If the host extracted
+        // the libraries into the engine's lib dir, use that directory instead.
+        File engineLibDir = BEnvironment.getAppLibDir(ai.packageName);
+        if (!p.installOption.isFlag(InstallOption.FLAG_SYSTEM) || hasNativeLibs(engineLibDir)) {
+            ai.nativeLibraryDir = engineLibDir.getAbsolutePath();
         }
         ai.processName = BPackageManagerService.fixProcessName(p.packageName, ai.packageName);
         ai.publicSourceDir = sourceDir;
@@ -345,6 +350,19 @@ public class PackageManagerCompat {
         }
         fixJar(ai);
         return ai;
+    }
+
+    private static boolean hasNativeLibs(File dir) {
+        String[] names = dir == null ? null : dir.list();
+        if (names == null) {
+            return false;
+        }
+        for (String name : names) {
+            if (name.endsWith(".so")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void hydrateSplitApkPathsFromHost(ApplicationInfo ai) {

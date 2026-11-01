@@ -13,6 +13,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import top.niunaijun.blackbox.BlackBoxCore
+import top.niunaijun.blackbox.core.env.BEnvironment
+import top.niunaijun.blackbox.utils.NativeUtils
 import top.niunaijun.blackbox.fake.device.DeviceSpoofManager
 
 /**
@@ -66,6 +68,7 @@ class BlackBoxEngine(
                     runCatching { core.deleteUser(userId) }
                     return@withContext EngineResult.Unsupported(result.msg ?: "فشل تثبيت النسخة داخل المحرك.")
                 }
+                ensureNativeLibs(app)
                 if (identity != null) {
                     DeviceSpoofManager.saveUserProfile(userId, identity.manufacturer, identity.model, randomAndroidId())
                 }
@@ -95,6 +98,7 @@ class BlackBoxEngine(
         withContext(Dispatchers.IO) {
             val app = dao.getImportedApp(instance.appId)
                 ?: return@withContext EngineResult.Unsupported("التطبيق الأصلي المستورد غير موجود.")
+            ensureNativeLibs(app)
             val launched = runCatching { BlackBoxCore.get().launchApk(app.packageName, instance.instanceNumber) }
                 .getOrElse { return@withContext EngineResult.Unsupported(it.message ?: "تعذر تشغيل النسخة.") }
             if (!launched) {
@@ -163,12 +167,33 @@ class BlackBoxEngine(
             process.inputStream.bufferedReader().useLines { lines ->
                 lines.filter { l ->
                     (" E " in l || " F " in l || "FATAL" in l || "AndroidRuntime" in l) ||
-                        ("BlackBox" in l && " W " in l)
-                }.toList().takeLast(60)
+                        (" W " in l && ENGINE_TAGS.any { tag -> tag in l })
+                }.toList().takeLast(120)
             }
         }.getOrElse { listOf("logcat unavailable: ${it.message}") }
         out.append(if (errors.isEmpty()) "(none)\n" else errors.joinToString("\n"))
         out.toString()
+    }
+
+    /**
+     * Apps installed from the phone usually keep their native libraries inside split APKs
+     * (config.arm64_v8a.apk) that Android loads straight from the zip. The virtual runtime needs
+     * them as real files, otherwise the app dies with UnsatisfiedLinkError (black screen).
+     * Safe to call repeatedly; files that are already extracted are skipped.
+     */
+    private fun ensureNativeLibs(app: ImportedAppEntity) {
+        if (app.sourceType != "INSTALLED") return
+        runCatching {
+            val info = context.packageManager.getApplicationInfo(app.packageName, 0)
+            val libDir = BEnvironment.getAppLibDir(app.packageName)
+            val apks = buildList {
+                add(info.sourceDir)
+                info.splitSourceDirs?.let { addAll(it) }
+            }
+            for (path in apks) {
+                runCatching { NativeUtils.copyNativeLib(File(path), libDir) }
+            }
+        }
     }
 
     private fun randomAndroidId(): String =
@@ -177,6 +202,10 @@ class BlackBoxEngine(
     companion object {
         const val STATE_READY = "READY"
         const val STATE_RUNNING = "RUNNING"
+        private val ENGINE_TAGS = listOf(
+            "BlackBox", "BActivityThread", "HCallbackProxy", "CopyExecutor", "BPackageManager",
+            "IOCore", "VirtualM", "OvelinApplication", "NativeCore",
+        )
         private const val FIRST_USER_ID = 1
         private const val MAX_USER_ID = 9999
         private const val RESERVE_BYTES = 1L * 1024 * 1024 * 1024
