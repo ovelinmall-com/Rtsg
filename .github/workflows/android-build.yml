@@ -18,31 +18,33 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android NDK
+      - name: Configure Android SDK
         run: |
-          sdkmanager "platforms;android-35"
-          sdkmanager "build-tools;35.0.0"
-          sdkmanager "ndk;27.0.12077973"
-          yes | sdkmanager --licenses
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
 
-      - name: Setup Gradle 8.11.1
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.0.12077973"
+
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.11.1
+          gradle-version: '8.11.1'
 
-      - name: Verify Environment
+      - name: Verify Build Environment
         run: |
           java -version
           gradle --version
-          echo "ANDROID_HOME=$ANDROID_HOME"
           ls "$ANDROID_HOME/ndk"
 
       - name: Build OVELIN SPACE
