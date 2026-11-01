@@ -1,0 +1,71 @@
+name: OVELIN SPACE APK Builder
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
+          sdkmanager "ndk;27.0.12077973"
+          yes | sdkmanager --licenses
+
+      - name: Setup Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+
+      - name: Verify Environment
+        run: |
+          java -version
+          gradle --version
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/ndk"
+
+      - name: Build OVELIN SPACE
+        working-directory: OVELIN-SPACE
+        run: |
+          gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Locate APK
+        run: |
+          mkdir -p apk-output
+
+          find OVELIN-SPACE/app/build/outputs/apk \
+            -type f -name '*.apk' \
+            -exec cp {} apk-output/ \;
+
+          test -n "$(ls -A apk-output)"
+
+          ls -lh apk-output/
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OVELIN-SPACE-APK
+          path: apk-output/*.apk
+          retention-days: 30
+          if-no-files-found: error
