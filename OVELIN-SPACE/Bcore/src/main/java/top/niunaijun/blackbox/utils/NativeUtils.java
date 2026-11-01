@@ -25,11 +25,19 @@ public class NativeUtils {
             nativeLibDir.mkdirs();
         }
         try (ZipFile zipfile = new ZipFile(apk.getAbsolutePath())) {
-            if (findAndCopyNativeLib(zipfile, Build.CPU_ABI, nativeLibDir)) {
-                return;
+            // OVELIN SPACE: Build.CPU_ABI is the device's primary ABI, not the ABI of this process.
+            // A 32-bit host on a 64-bit phone must extract 32-bit libraries.
+            String[] abis = android.os.Process.is64Bit()
+                    ? Build.SUPPORTED_64_BIT_ABIS
+                    : Build.SUPPORTED_32_BIT_ABIS;
+            for (String abi : abis) {
+                if (findAndCopyNativeLib(zipfile, abi, nativeLibDir)) {
+                    return;
+                }
             }
-
-            findAndCopyNativeLib(zipfile, "armeabi", nativeLibDir);
+            if (!android.os.Process.is64Bit()) {
+                findAndCopyNativeLib(zipfile, "armeabi", nativeLibDir);
+            }
         } finally {
             Log.d(TAG, "Done! +" + (System.currentTimeMillis() - startTime) + "ms");
         }

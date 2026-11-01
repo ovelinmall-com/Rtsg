@@ -481,7 +481,7 @@ fun SettingsScreen(
         }
         item {
             Text(
-                "OVELIN SPACE · 0.2.1",
+                "OVELIN SPACE · 0.2.2",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(top = 4.dp),
@@ -684,8 +684,15 @@ private fun RowScope.LanguageButton(
 
 @Composable
 private fun AppIcon(path: String?, label: String, size: Dp) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val image = remember(path) {
-        path?.let { runCatching { BitmapFactory.decodeFile(it)?.asImageBitmap() }.getOrNull() }
+        path?.let {
+            runCatching {
+                val file = java.io.File(it)
+                val resolved = if (file.isAbsolute) file else java.io.File(java.io.File(context.filesDir, "ovelin-space"), it)
+                BitmapFactory.decodeFile(resolved.path)?.asImageBitmap()
+            }.getOrNull()
+        }
     }
     if (image != null) {
         Image(

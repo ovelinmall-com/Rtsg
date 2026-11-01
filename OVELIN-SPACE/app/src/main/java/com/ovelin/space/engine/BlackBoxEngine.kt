@@ -102,6 +102,11 @@ class BlackBoxEngine(
                 ?: return@withContext EngineResult.Unsupported("التطبيق الأصلي المستورد غير موجود.")
             ensureNativeLibs(app)
             unsupportedAbiReason(app)?.let { return@withContext EngineResult.Unsupported(it) }
+            // A previous run may have crashed and left the engine with a stale process record, which
+            // shows up as a black screen on the next launch. Clear it before starting again.
+            if (instance.state == STATE_RUNNING) {
+                runCatching { BlackBoxCore.get().stopPackage(app.packageName, instance.instanceNumber) }
+            }
             val launched = runCatching { BlackBoxCore.get().launchApk(app.packageName, instance.instanceNumber) }
                 .getOrElse { return@withContext EngineResult.Unsupported(it.message ?: "تعذر تشغيل النسخة.") }
             if (!launched) {
@@ -147,9 +152,9 @@ class BlackBoxEngine(
         line(
             "OVELIN build",
             runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
-                .getOrElse { "?" } + " (native-libs v2)",
+                .getOrElse { "?" } + " (abi-aware)",
         )
-        line("Process bitness", if (android.os.Process.is64Bit()) "64-bit" else "32-bit")
+        line("Process bitness", if (android.os.Process.is64Bit()) "64-bit (arm64-v8a build)" else "32-bit (armeabi-v7a build)")
         line("Android", "${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
         line("Device", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
         line("ABIs", android.os.Build.SUPPORTED_ABIS.joinToString())
@@ -267,10 +272,13 @@ class BlackBoxEngine(
         if (abis.isEmpty()) return null
         val hostIs64 = android.os.Process.is64Bit()
         val has64 = abis.any { it.contains("64") }
-        return if (hostIs64 && !has64) {
-            "هذا التطبيق يحتوي مكتبات 32-بت فقط (${abis.joinToString()}) ولا يمكن تشغيله داخل المحرك على معالج 64-بت."
-        } else {
-            null
+        val has32 = abis.any { it.startsWith("armeabi") || it == "x86" }
+        return when {
+            hostIs64 && !has64 ->
+                "هذا التطبيق 32-بت فقط (${abis.joinToString()}). ثبّت نسخة OVELIN SPACE المخصصة لـ 32-بت (armeabi-v7a)."
+            !hostIs64 && !has32 ->
+                "هذا التطبيق 64-بت فقط (${abis.joinToString()}). ثبّت نسخة OVELIN SPACE المخصصة لـ 64-بت (arm64-v8a)."
+            else -> null
         }
     }
 

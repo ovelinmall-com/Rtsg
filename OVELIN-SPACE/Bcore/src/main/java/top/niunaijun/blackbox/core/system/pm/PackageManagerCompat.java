@@ -328,7 +328,9 @@ public class PackageManagerCompat {
 
 
         if (BuildCompat.isL()) {
-            BRApplicationInfoL.get(ai)._set_primaryCpuAbi(Build.CPU_ABI);
+            String[] processAbis = android.os.Process.is64Bit()
+                    ? Build.SUPPORTED_64_BIT_ABIS : Build.SUPPORTED_32_BIT_ABIS;
+            BRApplicationInfoL.get(ai)._set_primaryCpuAbi(processAbis.length > 0 ? processAbis[0] : Build.CPU_ABI);
             BRApplicationInfoL.get(ai)._set_scanPublicSourceDir(BRApplicationInfoL.get(baseApplication).scanPublicSourceDir());
             BRApplicationInfoL.get(ai)._set_scanSourceDir(BRApplicationInfoL.get(baseApplication).scanSourceDir());
         }

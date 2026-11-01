@@ -16,9 +16,20 @@ android {
         // The virtualization engine needs the host to target API 28 (it relies on pre-API-29
         // behaviour such as executing code from app-private storage). Sideload-only; not Play-eligible.
         targetSdk = 28
-        versionCode = 3
-        versionName = "0.2.1"
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        versionCode = 4
+        versionName = "0.2.2"
+    }
+
+    // One APK per CPU bit-width. The virtual runtime executes the guest inside this app's own
+    // process, so the host must have the same bit-width as the app being cloned: install
+    // app-armeabi-v7a for 32-bit apps (e.g. WhatsApp on many phones), app-arm64-v8a for 64-bit apps.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a")
+            isUniversalApk = false
+        }
     }
 
     // Fixed debug key committed with the project. CI otherwise generates a random debug key on every
