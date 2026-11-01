@@ -26,7 +26,6 @@ jobs:
       - name: Configure Android SDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
             "platforms;android-35" \
@@ -40,8 +39,7 @@ jobs:
 
       - name: Build APK
         working-directory: OVELIN-SPACE
-        run: |
-          gradle --no-daemon --stacktrace assembleDebug
+        run: gradle --no-daemon --stacktrace assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

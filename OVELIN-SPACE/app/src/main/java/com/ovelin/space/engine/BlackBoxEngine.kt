@@ -14,6 +14,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import top.niunaijun.blackbox.BlackBoxCore
+import top.niunaijun.blackbox.core.GmsCore
 import top.niunaijun.blackbox.core.env.BEnvironment
 import top.niunaijun.blackbox.utils.NativeUtils
 import top.niunaijun.blackbox.fake.device.DeviceSpoofManager
@@ -71,6 +72,12 @@ class BlackBoxEngine(
                     return@withContext EngineResult.Unsupported(result.msg ?: "فشل تثبيت النسخة داخل المحرك.")
                 }
                 ensureNativeLibs(app)
+                // Many apps (WhatsApp included) refuse to start unless Google Play Services is
+                // present inside their own environment. We only ever clone the real GMS already
+                // installed on this phone into the new virtual user — nothing is spoofed or faked.
+                runCatching {
+                    if (GmsCore.isSupportGms()) GmsCore.installGApps(userId)
+                }
                 if (identity != null) {
                     DeviceSpoofManager.saveUserProfile(userId, identity.manufacturer, identity.model, randomAndroidId())
                 }
@@ -102,6 +109,10 @@ class BlackBoxEngine(
                 ?: return@withContext EngineResult.Unsupported("التطبيق الأصلي المستورد غير موجود.")
             ensureNativeLibs(app)
             unsupportedAbiReason(app)?.let { return@withContext EngineResult.Unsupported(it) }
+            // Idempotent: fixes instances created before this check existed too.
+            runCatching {
+                if (GmsCore.isSupportGms()) GmsCore.installGApps(instance.instanceNumber)
+            }
             // A previous run may have crashed and left the engine with a stale process record, which
             // shows up as a black screen on the next launch. Clear it before starting again.
             if (instance.state == STATE_RUNNING) {
