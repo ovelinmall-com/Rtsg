@@ -8,6 +8,11 @@
         android:label="OVELIN SPACE"
         android:supportsRtl="true"
         android:theme="@style/Theme.OvelinSpace">
+        <!-- Some OEM ROMs (seen here on a Transsion/itel build) read application metaData
+             unconditionally when binding a secondary process, instead of null-checking it the
+             way AOSP does. Without at least one meta-data entry that Bundle is null, which
+             crashes com.ovelin.space:p0 on every launch of a cloned app's process. -->
+        <meta-data android:name="com.ovelin.space.ENGINE" android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

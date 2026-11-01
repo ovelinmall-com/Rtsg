@@ -76,7 +76,10 @@ class BlackBoxEngine(
                 // present inside their own environment. We only ever clone the real GMS already
                 // installed on this phone into the new virtual user — nothing is spoofed or faked.
                 runCatching {
-                    if (GmsCore.isSupportGms()) GmsCore.installGApps(userId)
+                    if (GmsCore.isSupportGms()) {
+                        GmsCore.installGApps(userId)
+                        for (pkg in GMS_PACKAGES) ensureNativeLibsForHostPackage(pkg)
+                    }
                 }
                 if (identity != null) {
                     DeviceSpoofManager.saveUserProfile(userId, identity.manufacturer, identity.model, randomAndroidId())
@@ -111,7 +114,10 @@ class BlackBoxEngine(
             unsupportedAbiReason(app)?.let { return@withContext EngineResult.Unsupported(it) }
             // Idempotent: fixes instances created before this check existed too.
             runCatching {
-                if (GmsCore.isSupportGms()) GmsCore.installGApps(instance.instanceNumber)
+                if (GmsCore.isSupportGms()) {
+                    GmsCore.installGApps(instance.instanceNumber)
+                    for (pkg in GMS_PACKAGES) ensureNativeLibsForHostPackage(pkg)
+                }
             }
             // A previous run may have crashed and left the engine with a stale process record, which
             // shows up as a black screen on the next launch. Clear it before starting again.
@@ -232,9 +238,20 @@ class BlackBoxEngine(
      */
     private fun ensureNativeLibs(app: ImportedAppEntity) {
         if (app.sourceType != "INSTALLED") return
+        ensureNativeLibsForHostPackage(app.packageName)
+    }
+
+    /**
+     * Extracting GMS by package name installs it "as a system app" (CopyExecutor skips native-lib
+     * copy for that path, see Bcore's InstallOption.FLAG_SYSTEM), so GMS's own native code would
+     * still point at the host's path. Since our process is forced 32-bit, that's only safe if the
+     * host happened to keep 32-bit libs there. Doing the same extraction we do for cloned apps
+     * removes that uncertainty; PackageManagerCompat already prefers this dir when it has libs.
+     */
+    private fun ensureNativeLibsForHostPackage(packageName: String) {
         runCatching {
-            val info = context.packageManager.getApplicationInfo(app.packageName, 0)
-            val libDir = BEnvironment.getAppLibDir(app.packageName)
+            val info = context.packageManager.getApplicationInfo(packageName, 0)
+            val libDir = BEnvironment.getAppLibDir(packageName)
             val apks = buildList {
                 add(info.sourceDir)
                 info.splitSourceDirs?.let { addAll(it) }
@@ -297,6 +314,7 @@ class BlackBoxEngine(
     companion object {
         const val STATE_READY = "READY"
         const val STATE_RUNNING = "RUNNING"
+        private val GMS_PACKAGES = listOf(GmsCore.GMS_PKG, GmsCore.GSF_PKG, GmsCore.VENDING_PKG)
         private val ENGINE_TAGS = listOf(
             "BlackBox", "BActivityThread", "HCallbackProxy", "CopyExecutor", "BPackageManager",
             "IOCore", "VirtualM", "OvelinApplication", "NativeCore",

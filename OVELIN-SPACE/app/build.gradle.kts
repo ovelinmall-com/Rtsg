@@ -16,8 +16,8 @@ android {
         // The virtualization engine needs the host to target API 28 (it relies on pre-API-29
         // behaviour such as executing code from app-private storage). Sideload-only; not Play-eligible.
         targetSdk = 28
-        versionCode = 7
-        versionName = "0.3.2"
+        versionCode = 9
+        versionName = "0.3.4"
         // Single 32-bit build. Packaging ONLY armeabi-v7a native libs forces Android to always run
         // this app's process as 32-bit (zygote picks the bitness from the installed package's native
         // libs, not from the device). That covers the overwhelming majority of cloned apps — most

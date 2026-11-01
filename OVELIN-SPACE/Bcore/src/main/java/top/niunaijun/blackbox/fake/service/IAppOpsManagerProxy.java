@@ -50,8 +50,10 @@ public class IAppOpsManagerProxy extends BinderInvocationStub {
         if (methodName.startsWith("check") || 
             methodName.startsWith("note") || 
             methodName.startsWith("start")) {
+            
+            
             Slog.d(TAG, "AppOps invoke: Bypassing system for " + methodName + ", allowing operation");
-            return AppOpsManager.MODE_ALLOWED;
+            return allowedResultFor(method);
         }
         
         
