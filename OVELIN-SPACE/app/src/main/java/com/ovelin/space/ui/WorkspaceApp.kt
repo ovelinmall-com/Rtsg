@@ -109,11 +109,16 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
     }
 
     fun runEngine(action: suspend () -> EngineResult) {
-        runTask {
-            when (val result = action()) {
-                is EngineResult.Completed -> result.message
-                is EngineResult.Unsupported -> result.reason
+        scope.launch {
+            val message = try {
+                when (val result = action()) {
+                    is EngineResult.Completed -> result.message
+                    is EngineResult.Unsupported -> result.reason
+                }.also { storageRefresh++ }
+            } catch (error: Exception) {
+                error.message ?: tr(isArabic, "تعذر إكمال العملية.", "The operation could not be completed.")
             }
+            snackbarHostState.showSnackbar(message)
         }
     }
 
