@@ -1,17 +1,17 @@
-name: OVELIN SPACE FIXED APK BUILDER
+name: OVELIN SPACE Android Build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
 
     steps:
       - name: Checkout
@@ -26,12 +26,11 @@ jobs:
       - name: Configure Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
 
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
-          yes | "$SDKMANAGER" --licenses || true
-
-          "$SDKMANAGER" \
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0" \
@@ -46,28 +45,21 @@ jobs:
         run: |
           java -version
           gradle --version
+          ls -la OVELIN-SPACE
 
-      - name: Build Fixed OVELIN SPACE
+      - name: Build OVELIN SPACE
         working-directory: OVELIN-SPACE
         run: |
           gradle --no-daemon --stacktrace assembleDebug
 
       - name: Locate APK
         run: |
-          mkdir -p apk-output
-
-          find OVELIN-SPACE/app/build/outputs/apk \
-            -type f -name '*.apk' \
-            -exec cp {} apk-output/ \;
-
-          test -n "$(ls -A apk-output)"
-
-          ls -lh apk-output/
+          find OVELIN-SPACE/app/build/outputs/apk -type f -name "*.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: OVELIN-SPACE-FIXED-APK
-          path: apk-output/*.apk
-          retention-days: 30
+          name: OVELIN-SPACE-NEW-APK
+          path: OVELIN-SPACE/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 30

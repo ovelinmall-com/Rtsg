@@ -7,6 +7,7 @@ import com.ovelin.space.data.VirtualInstanceEntity
 import com.ovelin.space.data.WorkspaceDao
 import java.io.File
 import java.util.UUID
+import java.util.zip.ZipFile
 import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -51,6 +52,7 @@ class BlackBoxEngine(
             if (remainingCapacity() <= 0) {
                 return@withContext EngineResult.Unsupported("المساحة المتاحة غير كافية لإنشاء نسخة جديدة.")
             }
+            unsupportedAbiReason(app)?.let { return@withContext EngineResult.Unsupported(it) }
             val core = BlackBoxCore.get()
             val existing = dao.getInstances()
             val userId = (FIRST_USER_ID..MAX_USER_ID).firstOrNull { id -> existing.none { it.instanceNumber == id } }
@@ -99,6 +101,7 @@ class BlackBoxEngine(
             val app = dao.getImportedApp(instance.appId)
                 ?: return@withContext EngineResult.Unsupported("التطبيق الأصلي المستورد غير موجود.")
             ensureNativeLibs(app)
+            unsupportedAbiReason(app)?.let { return@withContext EngineResult.Unsupported(it) }
             val launched = runCatching { BlackBoxCore.get().launchApk(app.packageName, instance.instanceNumber) }
                 .getOrElse { return@withContext EngineResult.Unsupported(it.message ?: "تعذر تشغيل النسخة.") }
             if (!launched) {
@@ -141,6 +144,12 @@ class BlackBoxEngine(
     override suspend fun diagnostics(): String = withContext(Dispatchers.IO) {
         val out = StringBuilder()
         fun line(label: String, value: String) { out.append(label).append(": ").append(value).append('\n') }
+        line(
+            "OVELIN build",
+            runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
+                .getOrElse { "?" } + " (native-libs v2)",
+        )
+        line("Process bitness", if (android.os.Process.is64Bit()) "64-bit" else "32-bit")
         line("Android", "${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
         line("Device", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
         line("ABIs", android.os.Build.SUPPORTED_ABIS.joinToString())
@@ -160,6 +169,30 @@ class BlackBoxEngine(
         }
         line("Instances in database", runCatching { dao.getInstances().size.toString() }.getOrElse { "?" })
         line("Free capacity (est.)", runCatching { remainingCapacity().toString() }.getOrElse { "?" })
+
+        out.append("\n--- Instances ---\n")
+        runCatching {
+            for (instance in dao.getInstances()) {
+                val app = dao.getImportedApp(instance.appId)
+                if (app == null) {
+                    out.append("${instance.displayName}: source app missing\n")
+                    continue
+                }
+                val libs = BEnvironment.getAppLibDir(app.packageName).list()?.count { it.endsWith(".so") } ?: 0
+                out.append(
+                    "${instance.displayName} [${app.packageName}] src=${app.sourceType} " +
+                        "engineLibs=$libs apkAbis=${nativeAbisOf(app).joinToString().ifEmpty { "none" }}\n",
+                )
+            }
+        }
+        out.append("\n--- Native library extraction log ---\n")
+        val extraction = runCatching {
+            val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "3000", "-v", "threadtime"))
+            process.inputStream.bufferedReader().useLines { lines ->
+                lines.filter { "VirtualM" in it || "CopyExecutor" in it }.toList().takeLast(25)
+            }
+        }.getOrElse { emptyList() }
+        out.append(if (extraction.isEmpty()) "(nothing logged)\n" else extraction.joinToString("\n") + "\n")
 
         out.append("\n--- Recent engine errors ---\n")
         val errors = runCatching {
@@ -193,6 +226,51 @@ class BlackBoxEngine(
             for (path in apks) {
                 runCatching { NativeUtils.copyNativeLib(File(path), libDir) }
             }
+        }
+    }
+
+    private fun apkPathsOf(app: ImportedAppEntity): List<String> =
+        if (app.sourceType == "INSTALLED") {
+            val info = context.packageManager.getApplicationInfo(app.packageName, 0)
+            buildList {
+                add(info.sourceDir)
+                info.splitSourceDirs?.let { addAll(it) }
+            }
+        } else {
+            app.apkPaths.lineSequence().filter { it.isNotBlank() }.map { File(workspaceRoot, it).path }.toList()
+        }
+
+    /** ABIs for which the app ships native libraries (empty set = pure Java/Kotlin app). */
+    private fun nativeAbisOf(app: ImportedAppEntity): Set<String> {
+        val abis = linkedSetOf<String>()
+        for (path in runCatching { apkPathsOf(app) }.getOrDefault(emptyList())) {
+            runCatching {
+                ZipFile(path).use { zip ->
+                    for (entry in zip.entries()) {
+                        val name = entry.name
+                        if (name.startsWith("lib/") && name.endsWith(".so")) {
+                            abis += name.substringAfter("lib/").substringBefore('/')
+                        }
+                    }
+                }
+            }
+        }
+        return abis
+    }
+
+    /**
+     * The virtual runtime executes the guest inside this app's own process. A 64-bit process cannot
+     * load 32-bit libraries, so apps that only ship 32-bit code would die with a black screen.
+     */
+    private fun unsupportedAbiReason(app: ImportedAppEntity): String? {
+        val abis = nativeAbisOf(app)
+        if (abis.isEmpty()) return null
+        val hostIs64 = android.os.Process.is64Bit()
+        val has64 = abis.any { it.contains("64") }
+        return if (hostIs64 && !has64) {
+            "هذا التطبيق يحتوي مكتبات 32-بت فقط (${abis.joinToString()}) ولا يمكن تشغيله داخل المحرك على معالج 64-بت."
+        } else {
+            null
         }
     }
 

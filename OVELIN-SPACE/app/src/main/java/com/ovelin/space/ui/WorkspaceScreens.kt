@@ -481,7 +481,7 @@ fun SettingsScreen(
         }
         item {
             Text(
-                "OVELIN SPACE · 0.2.0",
+                "OVELIN SPACE · 0.2.1",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(top = 4.dp),

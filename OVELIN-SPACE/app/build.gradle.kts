@@ -16,9 +16,20 @@ android {
         // The virtualization engine needs the host to target API 28 (it relies on pre-API-29
         // behaviour such as executing code from app-private storage). Sideload-only; not Play-eligible.
         targetSdk = 28
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.2.1"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+    }
+
+    // Fixed debug key committed with the project. CI otherwise generates a random debug key on every
+    // run, and Android refuses to update an installed app signed with a different key.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("ovelin-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
