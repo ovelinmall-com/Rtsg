@@ -16,20 +16,15 @@ android {
         // The virtualization engine needs the host to target API 28 (it relies on pre-API-29
         // behaviour such as executing code from app-private storage). Sideload-only; not Play-eligible.
         targetSdk = 28
-        versionCode = 4
-        versionName = "0.2.2"
-    }
-
-    // One APK per CPU bit-width. The virtual runtime executes the guest inside this app's own
-    // process, so the host must have the same bit-width as the app being cloned: install
-    // app-armeabi-v7a for 32-bit apps (e.g. WhatsApp on many phones), app-arm64-v8a for 64-bit apps.
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a")
-            isUniversalApk = false
-        }
+        versionCode = 5
+        versionName = "0.3.0"
+        // Single 32-bit build. Packaging ONLY armeabi-v7a native libs forces Android to always run
+        // this app's process as 32-bit (zygote picks the bitness from the installed package's native
+        // libs, not from the device). That covers the overwhelming majority of cloned apps — most
+        // Play Store apps still ship 32-bit code — without the user juggling two APK variants.
+        // Trade-off: an app that ships ONLY 64-bit native libraries (no 32-bit fallback) cannot run
+        // inside this build; the clone screen explains that case explicitly instead of a black screen.
+        ndk { abiFilters += listOf("armeabi-v7a") }
     }
 
     // Fixed debug key committed with the project. CI otherwise generates a random debug key on every

@@ -152,7 +152,7 @@ class BlackBoxEngine(
         line(
             "OVELIN build",
             runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
-                .getOrElse { "?" } + " (abi-aware)",
+                .getOrElse { "?" } + " (32-bit only)",
         )
         line("Process bitness", if (android.os.Process.is64Bit()) "64-bit (arm64-v8a build)" else "32-bit (armeabi-v7a build)")
         line("Android", "${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
@@ -267,18 +267,16 @@ class BlackBoxEngine(
      * The virtual runtime executes the guest inside this app's own process. A 64-bit process cannot
      * load 32-bit libraries, so apps that only ship 32-bit code would die with a black screen.
      */
+    // OVELIN SPACE always runs its own process as 32-bit (see app/build.gradle.kts), so a clone
+    // only fails on apps that ship ONLY 64-bit native code and no 32-bit fallback — rare, but real.
     private fun unsupportedAbiReason(app: ImportedAppEntity): String? {
         val abis = nativeAbisOf(app)
         if (abis.isEmpty()) return null
-        val hostIs64 = android.os.Process.is64Bit()
-        val has64 = abis.any { it.contains("64") }
         val has32 = abis.any { it.startsWith("armeabi") || it == "x86" }
-        return when {
-            hostIs64 && !has64 ->
-                "هذا التطبيق 32-بت فقط (${abis.joinToString()}). ثبّت نسخة OVELIN SPACE المخصصة لـ 32-بت (armeabi-v7a)."
-            !hostIs64 && !has32 ->
-                "هذا التطبيق 64-بت فقط (${abis.joinToString()}). ثبّت نسخة OVELIN SPACE المخصصة لـ 64-بت (arm64-v8a)."
-            else -> null
+        return if (!has32) {
+            "هذا التطبيق يحتوي مكتبات 64-بت فقط (${abis.joinToString()}) بدون نسخة 32-بت، ولا يمكن تشغيله داخل المحرك."
+        } else {
+            null
         }
     }
 

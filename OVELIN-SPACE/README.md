@@ -17,11 +17,8 @@ Native Android app for locally importing APKs, recording app metadata, and manag
 
 Cloning uses the embedded **BlackBox** virtualization engine (Apache-2.0, see `Bcore/LICENSE-BlackBox-Apache-2.0`). Each clone is a separate virtual user that holds one installed copy of the app with its own data. Use *Apps → Clone*, then manage copies in the *Instances* tab (open, stop, delete).
 
-- **The number of clones is bound by free storage and RAM**, not unlimited. The Instances tab shows an estimate of how many more fit.
-- **Compatibility varies per app.** Banking apps and anything that checks device integrity (Play Integrity, root/emulator detection) may refuse to run. This project does not try to defeat those checks.
-- **Device identity:** by default every clone presents itself as a Google Pixel 6 with its own Android ID; you can set a different manufacturer/model per clone when creating it. Some apps restrict accounts when they detect identity changes.
-- The host targets API 28 because the engine needs pre-API-29 behaviour. The APK is for sideloading and is not eligible for Google Play.
-- **Not tested here.** The engine integration was written without an Android SDK or device available; build it with the GitHub workflow and verify on a physical device (ARM64) before relying on it.
+- **The app's own process always runs 32-bit** (packaging only `armeabi-v7a` native libs forces this). Most cloned apps still ship 32-bit code and work fine; an app that ships ONLY 64-bit native libraries cannot be cloned and the clone screen says so instead of showing a black screen.
+- **The number of clones is bound by free storage and RAM**
 
 ### Changes made to the upstream engine
 
