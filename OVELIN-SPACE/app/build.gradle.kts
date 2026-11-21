@@ -11,20 +11,27 @@ android {
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
-        applicationId = "com.ovelin.space"
+        applicationId = "com.ovelin.space.bit64"
         minSdk = 26
         // The virtualization engine needs the host to target API 28 (it relies on pre-API-29
         // behaviour such as executing code from app-private storage). Sideload-only; not Play-eligible.
         targetSdk = 28
-        versionCode = 9
-        versionName = "0.3.4"
-        // Single 32-bit build. Packaging ONLY armeabi-v7a native libs forces Android to always run
-        // this app's process as 32-bit (zygote picks the bitness from the installed package's native
-        // libs, not from the device). That covers the overwhelming majority of cloned apps — most
-        // Play Store apps still ship 32-bit code — without the user juggling two APK variants.
-        // Trade-off: an app that ships ONLY 64-bit native libraries (no 32-bit fallback) cannot run
-        // inside this build; the clone screen explains that case explicitly instead of a black screen.
-        ndk { abiFilters += listOf("armeabi-v7a") }
+        versionCode = 10
+        versionName = "0.3.5"
+        // A single Android process (and every sub-process it forks for a virtual instance) is
+        // either 32-bit or 64-bit for its whole life — the OS picks that once, from the installed
+        // package's own native libraries, and it cannot be mixed within one running app. There is
+        // no public Android API to make one install run both at once, on any device, rooted or not.
+        // This project is the 64-bit build ("Iskander 64"); a separate project builds the 32-bit
+        // one ("Iskander 32"). Different applicationId so both can be installed at the same time.
+    }
+
+    // This project builds ONLY the 64-bit (arm64-v8a) APK: "Iskander 64".
+    // Use apps on it that the clone screen marks as 64-bit-only (or that work either way).
+    defaultConfig {
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     // Fixed debug key committed with the project. CI otherwise generates a random debug key on every

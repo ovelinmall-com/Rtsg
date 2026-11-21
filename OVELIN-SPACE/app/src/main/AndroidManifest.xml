@@ -5,7 +5,7 @@
         android:name=".OvelinApplication"
         android:allowBackup="false"
         android:largeHeap="true"
-        android:label="OVELIN SPACE"
+        android:label="Iskander 64"
         android:supportsRtl="true"
         android:theme="@style/Theme.OvelinSpace">
         <!-- Some OEM ROMs (seen here on a Transsion/itel build) read application metaData

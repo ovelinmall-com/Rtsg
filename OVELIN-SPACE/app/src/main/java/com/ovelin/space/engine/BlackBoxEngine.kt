@@ -169,7 +169,7 @@ class BlackBoxEngine(
         line(
             "OVELIN build",
             runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
-                .getOrElse { "?" } + " (32-bit only)",
+                .getOrElse { "?" } + " (dual-ABI build)",
         )
         line("Process bitness", if (android.os.Process.is64Bit()) "64-bit (arm64-v8a build)" else "32-bit (armeabi-v7a build)")
         line("Android", "${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
@@ -237,8 +237,20 @@ class BlackBoxEngine(
      * Safe to call repeatedly; files that are already extracted are skipped.
      */
     private fun ensureNativeLibs(app: ImportedAppEntity) {
-        if (app.sourceType != "INSTALLED") return
-        ensureNativeLibsForHostPackage(app.packageName)
+        if (app.sourceType == "INSTALLED") {
+            ensureNativeLibsForHostPackage(app.packageName)
+            return
+        }
+        // Apps restored from a raw APK file never went through ensureNativeLibsForHostPackage
+        // (that reads from PackageManager, which only knows about apps installed on the phone).
+        // Extract straight from the stored APK + any split files instead.
+        runCatching {
+            val libDir = BEnvironment.getAppLibDir(app.packageName)
+            for (relPath in app.apkPaths.lineSequence().filter { it.isNotBlank() }) {
+                val apk = File(workspaceRoot, relPath)
+                runCatching { NativeUtils.copyNativeLib(apk, libDir) }
+            }
+        }
     }
 
     /**
@@ -300,11 +312,15 @@ class BlackBoxEngine(
     private fun unsupportedAbiReason(app: ImportedAppEntity): String? {
         val abis = nativeAbisOf(app)
         if (abis.isEmpty()) return null
+        val hostIs64 = android.os.Process.is64Bit()
+        val has64 = abis.any { it.contains("64") }
         val has32 = abis.any { it.startsWith("armeabi") || it == "x86" }
-        return if (!has32) {
-            "هذا التطبيق يحتوي مكتبات 64-بت فقط (${abis.joinToString()}) بدون نسخة 32-بت، ولا يمكن تشغيله داخل المحرك."
-        } else {
-            null
+        return when {
+            hostIs64 && !has64 ->
+                "هذا التطبيق 32-بت فقط (${abis.joinToString()}). ثبّت نسخة OVELIN SPACE المخصصة لـ 32-بت (armeabi-v7a)."
+            !hostIs64 && !has32 ->
+                "هذا التطبيق 64-بت فقط (${abis.joinToString()}). ثبّت نسخة OVELIN SPACE المخصصة لـ 64-بت (arm64-v8a)."
+            else -> null
         }
     }
 
