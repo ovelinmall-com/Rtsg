@@ -481,7 +481,7 @@ fun SettingsScreen(
         }
         item {
             Text(
-                "Iskander 64 · 0.3.5",
+                "Iskander 64 · 0.3.6",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(top = 4.dp),

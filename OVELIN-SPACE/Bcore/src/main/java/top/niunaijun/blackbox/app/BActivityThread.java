@@ -40,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import black.android.app.ActivityThreadAppBindDataContext;
 import black.android.app.BRActivity;
@@ -91,6 +92,8 @@ public class BActivityThread extends IBActivityThread.Stub {
     public static final String TAG = "BActivityThread";
 
     private static BActivityThread sBActivityThread;
+    // Guards WebView.setDataDirectorySuffix() so it only ever runs once per process (see call site).
+    private static final AtomicBoolean sWebViewDataDirSet = new AtomicBoolean(false);
     private AppBindData mBoundApplication;
     private Application mInitialApplication;
     private AppConfig mAppConfig;
@@ -450,7 +453,19 @@ public class BActivityThread extends IBActivityThread.Stub {
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            WebView.setDataDirectorySuffix(getUserId() + ":" + packageName + ":" + processName);
+            // WebView.setDataDirectorySuffix() may be called AT MOST ONCE per process, and only
+            // before any WebView is created in that process. Opening an in-app browser (TikTok,
+            // etc.) after the app has already been running can trigger a second bind pass in the
+            // same process, which previously called this a second time and crashed the whole app
+            // with IllegalStateException ("Data directory suffix already set"). Guard it so it
+            // only ever runs once per process, and never let a WebView quirk take the app down.
+            if (sWebViewDataDirSet.compareAndSet(false, true)) {
+                try {
+                    WebView.setDataDirectorySuffix(getUserId() + ":" + packageName + ":" + processName);
+                } catch (Throwable t) {
+                    Slog.w(TAG, "WebView.setDataDirectorySuffix failed, continuing without it: " + t.getMessage());
+                }
+            }
         }
 
         VirtualRuntime.setupRuntime(processName, applicationInfo);
