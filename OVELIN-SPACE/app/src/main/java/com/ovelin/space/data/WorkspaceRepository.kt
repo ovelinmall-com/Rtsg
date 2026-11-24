@@ -370,7 +370,7 @@ class WorkspaceRepository(
         val root = workspaceRoot.canonicalFile
         val target = File(root, relativePath).canonicalFile
         require(target == root || target.path.startsWith(root.path + File.separator)) {
-            "المسار خارج مساحة OVELIN SPACE."
+            "المسار خارج مساحة Iskander."
         }
         return target
     }

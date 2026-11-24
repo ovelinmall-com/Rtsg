@@ -167,7 +167,7 @@ class BlackBoxEngine(
         val out = StringBuilder()
         fun line(label: String, value: String) { out.append(label).append(": ").append(value).append('\n') }
         line(
-            "OVELIN build",
+            "Iskander build",
             runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
                 .getOrElse { "?" } + " (dual-ABI build)",
         )
@@ -307,7 +307,7 @@ class BlackBoxEngine(
      * The virtual runtime executes the guest inside this app's own process. A 64-bit process cannot
      * load 32-bit libraries, so apps that only ship 32-bit code would die with a black screen.
      */
-    // OVELIN SPACE always runs its own process as 32-bit (see app/build.gradle.kts), so a clone
+    // Iskander always runs its own process as 32-bit (see app/build.gradle.kts), so a clone
     // only fails on apps that ship ONLY 64-bit native code and no 32-bit fallback — rare, but real.
     private fun unsupportedAbiReason(app: ImportedAppEntity): String? {
         val abis = nativeAbisOf(app)
@@ -317,9 +317,9 @@ class BlackBoxEngine(
         val has32 = abis.any { it.startsWith("armeabi") || it == "x86" }
         return when {
             hostIs64 && !has64 ->
-                "هذا التطبيق 32-بت فقط (${abis.joinToString()}). ثبّت نسخة OVELIN SPACE المخصصة لـ 32-بت (armeabi-v7a)."
+                "هذا التطبيق 32-بت فقط (${abis.joinToString()}). ثبّت نسخة Iskander المخصصة لـ 32-بت (armeabi-v7a)."
             !hostIs64 && !has32 ->
-                "هذا التطبيق 64-بت فقط (${abis.joinToString()}). ثبّت نسخة OVELIN SPACE المخصصة لـ 64-بت (arm64-v8a)."
+                "هذا التطبيق 64-بت فقط (${abis.joinToString()}). ثبّت نسخة Iskander المخصصة لـ 64-بت (arm64-v8a)."
             else -> null
         }
     }

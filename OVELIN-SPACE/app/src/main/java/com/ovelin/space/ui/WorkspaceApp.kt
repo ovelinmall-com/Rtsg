@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.ovelin.space.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Folder
@@ -178,10 +181,20 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
+                    navigationIcon = {
+                        Image(
+                            painter = painterResource(R.drawable.ic_app_logo),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(start = 12.dp)
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                        )
+                    },
                     title = {
                         Column {
                             Text(
-                                "OVELIN SPACE",
+                                "Iskander",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp,
@@ -439,8 +452,8 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
                 Text(
                     tr(
                         isArabic,
-                        "سيتم حذف نسخة الملفات المحفوظة داخل OVELIN SPACE فقط. التطبيق الأصلي على الهاتف لن يتأثر.",
-                        "Only the stored copy inside OVELIN SPACE will be removed. The app installed on the phone is unchanged.",
+                        "سيتم حذف نسخة الملفات المحفوظة داخل Iskander فقط. التطبيق الأصلي على الهاتف لن يتأثر.",
+                        "Only the stored copy inside Iskander will be removed. The app installed on the phone is unchanged.",
                     ),
                 )
             },

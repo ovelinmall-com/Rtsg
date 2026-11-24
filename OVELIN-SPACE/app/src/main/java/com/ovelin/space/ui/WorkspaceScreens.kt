@@ -48,11 +48,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ovelin.space.R
 import com.ovelin.space.data.ImportedAppEntity
 import com.ovelin.space.data.StorageSummary
 import com.ovelin.space.data.VirtualInstanceEntity
@@ -100,19 +102,24 @@ fun DashboardScreen(
                         .padding(22.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text(
-                        text = "OVELIN SPACE",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        letterSpacing = 2.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = tr(isArabic, "مساحة عملك، تحت إدارتك", "Your workspace, organized"),
-                        color = Color.White,
-                        fontSize = 23.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_app_logo),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp)),
+                        )
+                        Text(
+                            text = "Iskander",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                     Text(
                         text = tr(
                             isArabic,
@@ -124,9 +131,6 @@ fun DashboardScreen(
                     )
                 }
             }
-        }
-        item {
-            EngineStatusCard(isArabic, engineStatus)
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -336,7 +340,6 @@ fun CopiesScreen(
                 fontWeight = FontWeight.Bold,
             )
         }
-        item { EngineStatusCard(isArabic, engineStatus) }
         item {
             Text(
                 tr(
@@ -436,19 +439,6 @@ fun SettingsScreen(
                 }
             }
         }
-        item { EngineStatusCard(isArabic, engineStatus) }
-        item {
-            InfoCard(
-                title = tr(isArabic, "فحص المحرك", "Engine self-check"),
-                message = tr(
-                    isArabic,
-                    "يفحص توافق المحرك مع جهازك ويجمع آخر الأخطاء لنسخها ومشاركتها.",
-                    "Checks engine compatibility with this device and collects recent errors you can copy and share.",
-                ),
-            ) {
-                Button(onClick = onRunDiagnostics) { Text(tr(isArabic, "تشغيل الفحص", "Run check")) }
-            }
-        }
         item {
             InfoCard(
                 title = tr(isArabic, "التخزين", "Storage"),
@@ -480,11 +470,20 @@ fun SettingsScreen(
             )
         }
         item {
+            var tapCount by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
             Text(
-                "Iskander 64 · 0.3.6",
+                "Iskander · 0.3.8",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .clickable {
+                        tapCount++
+                        if (tapCount >= 5) {
+                            tapCount = 0
+                            onRunDiagnostics()
+                        }
+                    },
             )
         }
     }

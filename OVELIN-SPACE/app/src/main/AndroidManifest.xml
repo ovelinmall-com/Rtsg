@@ -1,11 +1,24 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- Without this, a cloned app's own gallery/file picker (or "save to gallery") finds
+         nothing: every clone runs under this app's real Android identity, so the OS enforces
+         storage access against Iskander itself, not the app being cloned. Pre-33 permissions
+         are kept for older cloned apps that still check them directly. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
 
     <application
         android:name=".OvelinApplication"
         android:allowBackup="false"
         android:largeHeap="true"
-        android:label="Iskander 64"
+        android:label="Iskander"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.OvelinSpace">
         <!-- Some OEM ROMs (seen here on a Transsion/itel build) read application metaData

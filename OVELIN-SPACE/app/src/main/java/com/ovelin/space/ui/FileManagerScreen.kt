@@ -239,8 +239,8 @@ fun FileManagerScreen(
                 Text(
                     tr(
                         isArabic,
-                        "سيتم حذف «${target.name}» من مساحة OVELIN SPACE فقط.",
-                        "“${target.name}” will be deleted from OVELIN SPACE only.",
+                        "سيتم حذف «${target.name}» من مساحة Iskander فقط.",
+                        "“${target.name}” will be deleted from Iskander only.",
                     ),
                 )
             },
