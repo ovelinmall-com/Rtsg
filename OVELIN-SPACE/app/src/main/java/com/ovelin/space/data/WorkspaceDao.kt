@@ -50,4 +50,19 @@ interface WorkspaceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertImportLog(log: ImportLogEntity)
+
+    @Query("SELECT * FROM clone_folders ORDER BY name COLLATE NOCASE")
+    fun observeFolders(): Flow<List<CloneFolderEntity>>
+
+    @Query("SELECT * FROM clone_folders ORDER BY name COLLATE NOCASE")
+    suspend fun getFolders(): List<CloneFolderEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFolder(folder: CloneFolderEntity)
+
+    @Query("UPDATE clone_folders SET name = :name WHERE id = :id")
+    suspend fun renameFolder(id: String, name: String)
+
+    @Query("DELETE FROM clone_folders WHERE id = :id")
+    suspend fun deleteFolder(id: String)
 }

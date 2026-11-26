@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
@@ -64,6 +66,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import com.ovelin.space.data.CloneFolderEntity
 import com.ovelin.space.data.ImportedAppEntity
 import com.ovelin.space.data.InstalledAppItem
 import com.ovelin.space.data.StorageSummary
@@ -81,6 +84,7 @@ private enum class WorkspaceTab { HOME, APPS, COPIES, FILES, SETTINGS }
 fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine) {
     val apps by repository.observeImportedApps().collectAsState(initial = emptyList())
     val instances by repository.observeInstances().collectAsState(initial = emptyList())
+    val cloneFolders by repository.observeCloneFolders().collectAsState(initial = emptyList())
     val language by repository.observeSetting("language").collectAsState(initial = null)
     val isArabic = language?.value != "en"
     val engineStatus = engine.status
@@ -101,6 +105,10 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
     var cloneSpoof by remember { mutableStateOf(false) }
     var cloneManufacturer by remember { mutableStateOf("Samsung") }
     var cloneModel by remember { mutableStateOf("Galaxy S24") }
+    var cloneFolderId by remember { mutableStateOf<String?>(null) }
+    var cloneNewFolderName by rememberSaveable { mutableStateOf("") }
+    var folderToRename by remember { mutableStateOf<CloneFolderEntity?>(null) }
+    var folderRenameText by remember { mutableStateOf("") }
     var capacity by remember { mutableIntStateOf(0) }
     var diagnosticsText by remember { mutableStateOf<String?>(null) }
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
@@ -294,12 +302,17 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
                         isArabic = isArabic,
                         instances = instances,
                         apps = apps,
+                        folders = cloneFolders,
                         engineStatus = engineStatus,
                         remainingCapacity = capacity,
                         hasIdentity = { engine.hasIdentity(it) },
                         onLaunch = { runEngine { engine.launchInstance(it) } },
                         onStop = { runEngine { engine.stopInstance(it) } },
                         onDelete = { runEngine { engine.deleteInstance(it) } },
+                        onRenameFolder = {
+                            folderToRename = it
+                            folderRenameText = it.name
+                        },
                     )
                     WorkspaceTab.FILES -> FileManagerScreen(
                         repository = repository,
@@ -394,6 +407,35 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
                         ),
                         style = MaterialTheme.typography.bodySmall,
                     )
+                    Text(
+                        tr(isArabic, "داخل أي مجلد؟", "Which folder?"),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            FilterChip(
+                                selected = cloneFolderId == null && cloneNewFolderName.isBlank(),
+                                onClick = { cloneFolderId = null; cloneNewFolderName = "" },
+                                label = { Text(tr(isArabic, "بدون مجلد", "No folder")) },
+                            )
+                        }
+                        items(cloneFolders) { folder ->
+                            FilterChip(
+                                selected = cloneFolderId == folder.id,
+                                onClick = { cloneFolderId = folder.id; cloneNewFolderName = "" },
+                                label = { Text(folder.name) },
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = cloneNewFolderName,
+                        onValueChange = {
+                            cloneNewFolderName = it
+                            if (it.isNotBlank()) cloneFolderId = null
+                        },
+                        label = { Text(tr(isArabic, "أو اسم مجلد جديد", "Or a new folder name")) },
+                        singleLine = true,
+                    )
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Switch(checked = cloneSpoof, onCheckedChange = { cloneSpoof = it })
                         Text(tr(isArabic, "تغيير هوية الجهاز لهذه النسخة", "Change device identity for this copy"))
@@ -433,13 +475,60 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
                             null
                         }
                         val number = instances.count { it.appId == target.id } + 1
+                        val newFolderName = cloneNewFolderName
+                        val pickedFolderId = cloneFolderId
                         appToClone = null
-                        runEngine { engine.createInstance(target, "${target.appName} $number", identity) }
+                        cloneFolderId = null
+                        cloneNewFolderName = ""
+                        runEngine {
+                            val resolvedFolderId = if (newFolderName.isNotBlank()) {
+                                repository.createCloneFolder(newFolderName).id
+                            } else {
+                                pickedFolderId
+                            }
+                            engine.createInstance(target, "${target.appName} $number", identity, resolvedFolderId)
+                        }
                     },
                 ) { Text(tr(isArabic, "إنشاء", "Create")) }
             },
             dismissButton = {
-                TextButton(onClick = { appToClone = null }) { Text(tr(isArabic, "إلغاء", "Cancel")) }
+                TextButton(
+                    onClick = {
+                        appToClone = null
+                        cloneFolderId = null
+                        cloneNewFolderName = ""
+                    },
+                ) { Text(tr(isArabic, "إلغاء", "Cancel")) }
+            },
+        )
+    }
+
+    folderToRename?.let { folder ->
+        AlertDialog(
+            onDismissRequest = { folderToRename = null },
+            title = { Text(tr(isArabic, "تعديل اسم المجلد", "Rename folder")) },
+            text = {
+                OutlinedTextField(
+                    value = folderRenameText,
+                    onValueChange = { folderRenameText = it },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val id = folder.id
+                        val newName = folderRenameText
+                        folderToRename = null
+                        runTask {
+                            repository.renameCloneFolder(id, newName)
+                            if (isArabic) "تم تعديل اسم المجلد." else "Folder renamed."
+                        }
+                    },
+                ) { Text(tr(isArabic, "حفظ", "Save")) }
+            },
+            dismissButton = {
+                TextButton(onClick = { folderToRename = null }) { Text(tr(isArabic, "إلغاء", "Cancel")) }
             },
         )
     }

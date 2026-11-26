@@ -25,7 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Memory
@@ -55,6 +57,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ovelin.space.R
+import com.ovelin.space.data.CloneFolderEntity
 import com.ovelin.space.data.ImportedAppEntity
 import com.ovelin.space.data.StorageSummary
 import com.ovelin.space.data.VirtualInstanceEntity
@@ -96,7 +99,7 @@ fun DashboardScreen(
                     modifier = Modifier
                         .background(
                             Brush.linearGradient(
-                                listOf(Color(0xFF183E46), Color(0xFF172033), Color(0xFF24243D)),
+                                listOf(Color(0xFF3A0808), Color(0xFF1A0607), Color(0xFF0D0405)),
                             ),
                         )
                         .padding(22.dp),
@@ -126,7 +129,7 @@ fun DashboardScreen(
                             "استورد التطبيقات والملفات وأدرها محليًا.",
                             "Import and manage apps and files locally.",
                         ),
-                        color = Color(0xFFCFD8E3),
+                        color = Color(0xFFE8D4D3),
                         fontSize = 14.sp,
                     )
                 }
@@ -156,14 +159,14 @@ fun DashboardScreen(
                         title = tr(isArabic, "استهلاك المساحة", "Workspace used"),
                         value = formatBytes(storage?.workspaceBytes ?: 0L, isArabic),
                         icon = Icons.Outlined.Storage,
-                        tint = Color(0xFFFFC46B),
+                        tint = Color(0xFFFF8A3D),
                     )
                     MetricCard(
                         modifier = Modifier.weight(1f),
                         title = tr(isArabic, "الذاكرة المستخدمة", "RAM in use"),
                         value = usedRam?.let { formatBytes(it, isArabic) } ?: "—",
                         icon = Icons.Outlined.Memory,
-                        tint = Color(0xFF83B9FF),
+                        tint = Color(0xFFE2302A),
                     )
                 }
             }
@@ -317,16 +320,48 @@ fun AppsScreen(
 }
 
 @Composable
+fun FlamingFolderIcon(modifier: Modifier = Modifier, size: Dp = 40.dp) {
+    Box(modifier = modifier.size(size * 1.6f), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(size * 1.6f)
+                .background(
+                    Brush.radialGradient(
+                        listOf(IskanderRedBright.copy(alpha = 0.55f), Color.Transparent),
+                    ),
+                    shape = CircleShape,
+                ),
+        )
+        Icon(
+            Icons.Filled.Folder,
+            contentDescription = null,
+            tint = IskanderRedBright,
+            modifier = Modifier.size(size),
+        )
+        Icon(
+            Icons.Filled.Folder,
+            contentDescription = null,
+            tint = IskanderEmber.copy(alpha = 0.35f),
+            modifier = Modifier
+                .size(size * 0.86f)
+                .padding(bottom = 3.dp),
+        )
+    }
+}
+
+@Composable
 fun CopiesScreen(
     isArabic: Boolean,
     instances: List<VirtualInstanceEntity>,
     apps: List<ImportedAppEntity>,
+    folders: List<CloneFolderEntity>,
     engineStatus: EngineStatus,
     remainingCapacity: Int,
     hasIdentity: (VirtualInstanceEntity) -> Boolean,
     onLaunch: (VirtualInstanceEntity) -> Unit,
     onStop: (VirtualInstanceEntity) -> Unit,
     onDelete: (VirtualInstanceEntity) -> Unit,
+    onRenameFolder: (CloneFolderEntity) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -363,44 +398,102 @@ fun CopiesScreen(
                 )
             }
         } else {
-            items(instances, key = { it.id }) { instance ->
-                val app = apps.firstOrNull { it.id == instance.appId }
-                val running = instance.state == "RUNNING"
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(18.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
+            val grouped = instances.groupBy { it.folderId }
+            val orderedFolderIds = folders.map { it.id }.filter { grouped.containsKey(it) }
+            for (folderId in orderedFolderIds) {
+                val folder = folders.first { it.id == folderId }
+                item(key = "folder-${folder.id}") {
                     Row(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                            .clickable { onRenameFolder(folder) },
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        AppIcon(app?.iconPath, instance.displayName, 44.dp)
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(instance.displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                (if (running) tr(isArabic, "قيد التشغيل", "Running") else tr(isArabic, "جاهزة", "Ready")) +
-                                    if (hasIdentity(instance)) " · " + tr(isArabic, "هوية جهاز مخصّصة", "custom device identity") else "",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.labelSmall,
-                            )
+                        FlamingFolderIcon(size = 26.dp)
+                        Text(
+                            folder.name,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            Icons.Outlined.Edit,
+                            contentDescription = tr(isArabic, "تعديل اسم المجلد", "Rename folder"),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+                items(grouped.getValue(folderId), key = { it.id }) { instance ->
+                    InstanceCard(isArabic, instance, apps, hasIdentity, onLaunch, onStop, onDelete)
+                }
+            }
+            val unfiled = grouped[null].orEmpty()
+            if (unfiled.isNotEmpty()) {
+                if (orderedFolderIds.isNotEmpty()) {
+                    item(key = "unfiled-header") {
+                        Text(
+                            tr(isArabic, "بدون مجلد", "No folder"),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+                items(unfiled, key = { it.id }) { instance ->
+                    InstanceCard(isArabic, instance, apps, hasIdentity, onLaunch, onStop, onDelete)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstanceCard(
+    isArabic: Boolean,
+    instance: VirtualInstanceEntity,
+    apps: List<ImportedAppEntity>,
+    hasIdentity: (VirtualInstanceEntity) -> Boolean,
+    onLaunch: (VirtualInstanceEntity) -> Unit,
+    onStop: (VirtualInstanceEntity) -> Unit,
+    onDelete: (VirtualInstanceEntity) -> Unit,
+) {
+    val app = apps.firstOrNull { it.id == instance.appId }
+    val running = instance.state == "RUNNING"
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AppIcon(app?.iconPath, instance.displayName, 44.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(instance.displayName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    (if (running) tr(isArabic, "قيد التشغيل", "Running") else tr(isArabic, "جاهزة", "Ready")) +
+                        if (hasIdentity(instance)) " · " + tr(isArabic, "هوية جهاز مخصّصة", "custom device identity") else "",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                androidx.compose.material3.TextButton(onClick = { onLaunch(instance) }) {
+                    Text(tr(isArabic, "تشغيل", "Open"))
+                }
+                Row {
+                    if (running) {
+                        androidx.compose.material3.TextButton(onClick = { onStop(instance) }) {
+                            Text(tr(isArabic, "إيقاف", "Stop"))
                         }
-                        Column(horizontalAlignment = Alignment.End) {
-                            androidx.compose.material3.TextButton(onClick = { onLaunch(instance) }) {
-                                Text(tr(isArabic, "تشغيل", "Open"))
-                            }
-                            Row {
-                                if (running) {
-                                    androidx.compose.material3.TextButton(onClick = { onStop(instance) }) {
-                                        Text(tr(isArabic, "إيقاف", "Stop"))
-                                    }
-                                }
-                                androidx.compose.material3.TextButton(onClick = { onDelete(instance) }) {
-                                    Text(tr(isArabic, "حذف", "Delete"), color = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
+                    }
+                    androidx.compose.material3.TextButton(onClick = { onDelete(instance) }) {
+                        Text(tr(isArabic, "حذف", "Delete"), color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -470,17 +563,17 @@ fun SettingsScreen(
             )
         }
         item {
-            val tapCount = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+            var tapCount by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
             Text(
-                "Iskander · 0.3.8",
+                "Iskander · 0.4.0",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier
                     .padding(top = 4.dp)
                     .clickable {
-                        tapCount.intValue++
-                        if (tapCount.intValue >= 5) {
-                            tapCount.intValue = 0
+                        tapCount++
+                        if (tapCount >= 5) {
+                            tapCount = 0
                             onRunDiagnostics()
                         }
                     },

@@ -12,8 +12,9 @@ import androidx.room.RoomDatabase
         WorkspaceSettingEntity::class,
         StorageLogEntity::class,
         ImportLogEntity::class,
+        CloneFolderEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class WorkspaceDatabase : RoomDatabase() {
@@ -29,7 +30,7 @@ abstract class WorkspaceDatabase : RoomDatabase() {
                     context.applicationContext,
                     WorkspaceDatabase::class.java,
                     "ovelin-space.db",
-                ).build().also { instance = it }
+                ).fallbackToDestructiveMigration().build().also { instance = it }
             }
     }
 }

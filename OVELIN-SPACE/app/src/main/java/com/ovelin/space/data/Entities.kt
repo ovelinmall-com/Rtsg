@@ -23,7 +23,7 @@ data class ImportedAppEntity(
 
 @Entity(
     tableName = "virtual_instances",
-    indices = [Index("appId")],
+    indices = [Index("appId"), Index("folderId")],
 )
 data class VirtualInstanceEntity(
     @PrimaryKey val id: String,
@@ -34,6 +34,15 @@ data class VirtualInstanceEntity(
     val state: String,
     val createdAt: Long,
     val lastLaunchedAt: Long?,
+    val folderId: String? = null,
+)
+
+/** A folder the user clones apps into, shown with a flaming-red icon in the Copies screen. */
+@Entity(tableName = "clone_folders")
+data class CloneFolderEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val createdAt: Long,
 )
 
 @Entity(tableName = "workspace_settings")

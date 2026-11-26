@@ -51,6 +51,31 @@ class WorkspaceRepository(
 
     fun observeSetting(key: String): Flow<WorkspaceSettingEntity?> = dao.observeSetting(key)
 
+    fun observeCloneFolders(): Flow<List<CloneFolderEntity>> = dao.observeFolders()
+
+    suspend fun createCloneFolder(name: String): CloneFolderEntity = withContext(Dispatchers.IO) {
+        val folder = CloneFolderEntity(
+            id = java.util.UUID.randomUUID().toString(),
+            name = name.trim().ifBlank { "مجلد جديد" },
+            createdAt = System.currentTimeMillis(),
+        )
+        dao.upsertFolder(folder)
+        folder
+    }
+
+    suspend fun renameCloneFolder(id: String, name: String) = withContext(Dispatchers.IO) {
+        dao.renameFolder(id, name.trim().ifBlank { "مجلد" })
+    }
+
+    suspend fun deleteCloneFolder(id: String) = withContext(Dispatchers.IO) {
+        dao.deleteFolder(id)
+    }
+
+    suspend fun moveInstanceToFolder(instance: VirtualInstanceEntity, folderId: String?) =
+        withContext(Dispatchers.IO) {
+            dao.upsertInstance(instance.copy(folderId = folderId))
+        }
+
     suspend fun setSetting(key: String, value: String) {
         dao.upsertSetting(WorkspaceSettingEntity(key, value, System.currentTimeMillis()))
     }

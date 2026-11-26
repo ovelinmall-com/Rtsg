@@ -48,6 +48,7 @@ class BlackBoxEngine(
         app: ImportedAppEntity,
         displayName: String,
         identity: DeviceIdentity?,
+        folderId: String?,
     ): EngineResult = lock.withLock {
         withContext(Dispatchers.IO) {
             if (remainingCapacity() <= 0) {
@@ -94,6 +95,7 @@ class BlackBoxEngine(
                         state = STATE_READY,
                         createdAt = System.currentTimeMillis(),
                         lastLaunchedAt = null,
+                        folderId = folderId,
                     ),
                 )
                 EngineResult.Completed("تم إنشاء النسخة: $displayName")

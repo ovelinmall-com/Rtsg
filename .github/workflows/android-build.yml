@@ -1,4 +1,4 @@
-name: OVELIN SPACE BUILD
+name: Run OVELIN SPACE BUILD
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -39,7 +39,8 @@ jobs:
 
       - name: Build APK
         working-directory: OVELIN-SPACE
-        run: gradle --no-daemon --stacktrace assembleDebug
+        run: |
+          gradle --no-daemon --stacktrace assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -47,4 +48,4 @@ jobs:
           name: OVELIN-SPACE-NEW-APK
           path: OVELIN-SPACE/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7

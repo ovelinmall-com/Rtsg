@@ -27,7 +27,12 @@ interface VirtualizationEngine {
     /** How many more instances fit given free storage; the count is resource-bound, not unlimited. */
     suspend fun remainingCapacity(): Int
 
-    suspend fun createInstance(app: ImportedAppEntity, displayName: String, identity: DeviceIdentity?): EngineResult
+    suspend fun createInstance(
+        app: ImportedAppEntity,
+        displayName: String,
+        identity: DeviceIdentity?,
+        folderId: String? = null,
+    ): EngineResult
     suspend fun launchInstance(instance: VirtualInstanceEntity): EngineResult
     suspend fun stopInstance(instance: VirtualInstanceEntity): EngineResult
     suspend fun deleteInstance(instance: VirtualInstanceEntity): EngineResult
