@@ -319,32 +319,75 @@ fun AppsScreen(
     }
 }
 
+/**
+ * A folder tile styled like Android's own app-group folders (a rounded square holding a small
+ * grid preview of what's inside), but in the app's red brand instead of system gray — a folder
+ * "on fire" rather than a plain stock icon. Shows up to 4 of the cloned apps' real icons.
+ */
 @Composable
-fun FlamingFolderIcon(modifier: Modifier = Modifier, size: Dp = 40.dp) {
-    Box(modifier = modifier.size(size * 1.6f), contentAlignment = Alignment.Center) {
+fun FlamingFolderIcon(previewIconPaths: List<String?>, modifier: Modifier = Modifier, size: Dp = 40.dp) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(size.value.dp * 0.28f))
+            .background(
+                Brush.linearGradient(listOf(IskanderRedDeep, IskanderRed, IskanderRedBright)),
+            )
+            .padding(size * 0.12f),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (previewIconPaths.isEmpty()) {
+            Icon(
+                Icons.Filled.Folder,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.size(size * 0.6f),
+            )
+        } else {
+            val cell = (size - size * 0.24f) / 2f
+            Column(verticalArrangement = Arrangement.spacedBy(size.value.dp * 0.06f)) {
+                for (row in 0..1) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(size.value.dp * 0.06f)) {
+                        for (col in 0..1) {
+                            val index = row * 2 + col
+                            val path = previewIconPaths.getOrNull(index)
+                            if (path != null || index < previewIconPaths.size) {
+                                MiniAppTile(path, cell)
+                            } else {
+                                Box(Modifier.size(cell))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniAppTile(path: String?, size: Dp) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val image = remember(path) {
+        path?.let {
+            runCatching {
+                val file = java.io.File(it)
+                val resolved = if (file.isAbsolute) file else java.io.File(java.io.File(context.filesDir, "ovelin-space"), it)
+                BitmapFactory.decodeFile(resolved.path)?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    if (image != null) {
+        Image(
+            bitmap = image,
+            contentDescription = null,
+            modifier = Modifier.size(size).clip(RoundedCornerShape(size.value.dp * 0.22f)),
+        )
+    } else {
         Box(
             modifier = Modifier
-                .size(size * 1.6f)
-                .background(
-                    Brush.radialGradient(
-                        listOf(IskanderRedBright.copy(alpha = 0.55f), Color.Transparent),
-                    ),
-                    shape = CircleShape,
-                ),
-        )
-        Icon(
-            Icons.Filled.Folder,
-            contentDescription = null,
-            tint = IskanderRedBright,
-            modifier = Modifier.size(size),
-        )
-        Icon(
-            Icons.Filled.Folder,
-            contentDescription = null,
-            tint = IskanderEmber.copy(alpha = 0.35f),
-            modifier = Modifier
-                .size(size * 0.86f)
-                .padding(bottom = 3.dp),
+                .size(size)
+                .clip(RoundedCornerShape(size.value.dp * 0.22f))
+                .background(Color.White.copy(alpha = 0.25f)),
         )
     }
 }
@@ -411,7 +454,10 @@ fun CopiesScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        FlamingFolderIcon(size = 26.dp)
+                        val previewPaths = grouped.getValue(folderId).take(4).map { inst ->
+                            apps.firstOrNull { it.id == inst.appId }?.iconPath
+                        }
+                        FlamingFolderIcon(previewIconPaths = previewPaths, size = 40.dp)
                         Text(
                             folder.name,
                             fontWeight = FontWeight.Bold,
@@ -565,7 +611,7 @@ fun SettingsScreen(
         item {
             val tapCount = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
             Text(
-                "Iskander · 0.4.0",
+                "Iskander · 0.4.1",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier
@@ -775,7 +821,7 @@ private fun RowScope.LanguageButton(
 }
 
 @Composable
-private fun AppIcon(path: String?, label: String, size: Dp) {
+fun AppIcon(path: String?, label: String, size: Dp) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val image = remember(path) {
         path?.let {

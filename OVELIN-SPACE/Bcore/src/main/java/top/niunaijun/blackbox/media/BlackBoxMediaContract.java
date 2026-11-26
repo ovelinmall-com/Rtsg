@@ -15,8 +15,8 @@ public final class BlackBoxMediaContract {
     public static final String USER_ID_QUERY_PARAM = "bbx_user_id";
     public static final String EXTERNAL_VOLUME = "external";
 
-    public static final String ROOT_IMAGES = "DCIM/BlackBoxGallery/";
-    public static final String ROOT_VIDEOS = "Movies/BlackBoxGallery/";
+    public static final String ROOT_IMAGES = "DCIM/Iskander/";
+    public static final String ROOT_VIDEOS = "Movies/Iskander/";
 
     public static final String TABLE_MEDIA = "media_entries";
     public static final String TABLE_SCAN_STATE = "scan_state";

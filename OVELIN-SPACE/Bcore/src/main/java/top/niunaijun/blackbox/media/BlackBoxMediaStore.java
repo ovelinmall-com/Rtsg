@@ -9,6 +9,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
+import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.text.TextUtils;
@@ -40,12 +41,19 @@ public final class BlackBoxMediaStore {
     private BlackBoxMediaStore() {
     }
 
+    // Clones used to see only their own private, empty sandbox folder here (BEnvironment's
+    // per-user dir), which is why a cloned app's gallery/picker was always empty no matter what
+    // permission was granted - the data it was scanning never existed. Real Android has exactly
+    // one shared gallery for every app; every virtual user now scans that same real, public
+    // storage root, so existing real photos are pickable and anything a clone saves is a real,
+    // visible file any gallery app (inside or outside Iskander) can see. userId is intentionally
+    // unused: there is only one physical root now.
     public static File getImagesRoot(int userId) {
-        return new File(BEnvironment.getExternalUserDir(userId), BlackBoxMediaContract.ROOT_IMAGES);
+        return Environment.getExternalStorageDirectory();
     }
 
     public static File getVideosRoot(int userId) {
-        return new File(BEnvironment.getExternalUserDir(userId), BlackBoxMediaContract.ROOT_VIDEOS);
+        return Environment.getExternalStorageDirectory();
     }
 
     public static List<BlackBoxMediaEntry> listMediaEntries(int userId) {
@@ -902,7 +910,9 @@ public final class BlackBoxMediaStore {
 
     private static File resolveTargetDir(int userId, String relativePath, int mediaType) {
         String normalized = normalizeRelativePath(relativePath, mediaType);
-        return new File(BEnvironment.getExternalUserDir(userId), normalized);
+        File root = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+                ? getVideosRoot(userId) : getImagesRoot(userId);
+        return new File(root, normalized);
     }
 
     private static String buildRelativePath(int userId, File file, int mediaType) {
