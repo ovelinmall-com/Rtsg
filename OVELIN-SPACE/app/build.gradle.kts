@@ -15,7 +15,7 @@ android {
         minSdk = 26
         // The virtualization engine needs the host to target API 28 (it relies on pre-API-29
         // behaviour such as executing code from app-private storage). Sideload-only; not Play-eligible.
-        targetSdk = 28
+        targetSdk = 35
         versionCode = 16
         versionName = "0.4.2"
         // A single Android process (and every sub-process it forks for a virtual instance) is
