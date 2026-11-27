@@ -16,8 +16,8 @@ android {
         // The virtualization engine needs the host to target API 28 (it relies on pre-API-29
         // behaviour such as executing code from app-private storage). Sideload-only; not Play-eligible.
         targetSdk = 28
-        versionCode = 15
-        versionName = "0.4.1"
+        versionCode = 16
+        versionName = "0.4.2"
         // A single Android process (and every sub-process it forks for a virtual instance) is
         // either 32-bit or 64-bit for its whole life — the OS picks that once, from the installed
         // package's own native libraries, and it cannot be mixed within one running app. There is
@@ -48,6 +48,17 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+        }
+        // android:debuggable="true" is baked into every "debug" build by default, and it's a real,
+        // system-wide tax on the ART runtime hosting EVERY process of this app - including every
+        // cloned app (Facebook included), not just our own UI. That's a very plausible reason
+        // scrolling/navigation/buttons feel uniformly sluggish across the board rather than in one
+        // specific feature. Turning it off keeps everything else about the "debug" build (same
+        // task name `assembleDebug`, same debug keystore, no risky code-shrinking) so the CI
+        // workflow and the build script need no changes, but every virtual process now runs with
+        // normal, non-debuggable ART performance characteristics.
+        getByName("debug") {
+            isDebuggable = false
         }
     }
 
