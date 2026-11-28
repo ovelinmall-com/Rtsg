@@ -24,6 +24,10 @@ public final class DeviceSpoofManager {
     private static final String KEY_FINGERPRINT = "fingerprint_";
     private static final String KEY_SERIAL = "serial_";
     private static final String KEY_ANDROID_ID = "android_id_";
+    private static final String KEY_BUILD_TOKEN = "build_token_";
+    private static final String KEY_IS_CUSTOM = "is_custom_";
+
+    private static final java.util.Random RANDOM = new java.util.Random();
 
     private DeviceSpoofManager() {
     }
@@ -76,7 +80,21 @@ public final class DeviceSpoofManager {
     }
 
     public static void saveUserProfile(int userId, String manufacturer, String model, String androidId) {
-        DeviceSpoofProfile profile = buildCustomProfile(userId, manufacturer, model, androidId);
+        // Every call here is a fresh instance creation (see BlackBoxEngine.createInstance, which
+        // now calls this unconditionally). The "slot" (userId) a deleted instance used to occupy
+        // WILL be reused by the next clone - that's expected and fine - but the identity values
+        // that depend only on (manufacturer, model, userId) used to be fully deterministic, so a
+        // new clone landing on a reused slot with the same manufacturer/model would get back the
+        // EXACT same serial, and the build fingerprint never varied per-instance at all (it only
+        // ever depended on manufacturer/model, not even on userId). A random, persisted build
+        // token mixed into both fixes that: each creation gets its own fingerprint/serial, and
+        // they stay fixed for that instance's lifetime (read back from prefs) until it's deleted.
+        String buildToken = randomBuildToken();
+        // "Custom" means the caller explicitly picked a manufacturer/model (shown in the UI as
+        // "custom device identity"). Every creation still gets its own randomized profile either
+        // way - this flag is only for that UI label, not for whether the values are randomized.
+        boolean isCustom = !TextUtils.isEmpty(manufacturer) || !TextUtils.isEmpty(model);
+        DeviceSpoofProfile profile = buildCustomProfile(userId, manufacturer, model, androidId, buildToken);
         prefs().edit()
                 .putString(KEY_MANUFACTURER + userId, profile.manufacturer)
                 .putString(KEY_BRAND + userId, profile.brand)
@@ -86,6 +104,8 @@ public final class DeviceSpoofManager {
                 .putString(KEY_FINGERPRINT + userId, profile.fingerprint)
                 .putString(KEY_SERIAL + userId, profile.serial)
                 .putString(KEY_ANDROID_ID + userId, profile.androidId)
+                .putString(KEY_BUILD_TOKEN + userId, buildToken)
+                .putBoolean(KEY_IS_CUSTOM + userId, isCustom)
                 .commit();
     }
 
@@ -99,6 +119,8 @@ public final class DeviceSpoofManager {
                 .remove(KEY_FINGERPRINT + userId)
                 .remove(KEY_SERIAL + userId)
                 .remove(KEY_ANDROID_ID + userId)
+                .remove(KEY_BUILD_TOKEN + userId)
+                .remove(KEY_IS_CUSTOM + userId)
                 .commit();
     }
 
@@ -107,9 +129,9 @@ public final class DeviceSpoofManager {
         return true;
     }
 
-    /** True when the user saved a custom profile for this virtual user. */
+    /** True when the user picked an explicit manufacturer/model for this virtual user. */
     public static boolean hasCustomProfile(int userId) {
-        return prefs().contains(KEY_MODEL + userId);
+        return prefs().getBoolean(KEY_IS_CUSTOM + userId, false);
     }
 
     public static void applyToCurrentProcess(int userId) {
@@ -157,15 +179,18 @@ public final class DeviceSpoofManager {
         return !TextUtils.isEmpty(value) && value.matches("(?i)[0-9a-f]{16}");
     }
 
-    private static DeviceSpoofProfile buildCustomProfile(int userId, String manufacturer, String model, String androidId) {
+    private static DeviceSpoofProfile buildCustomProfile(int userId, String manufacturer, String model, String androidId, String buildToken) {
         String safeManufacturer = normalizeManufacturer(manufacturer);
         String safeBrand = normalizeBrand(safeManufacturer);
         String safeModel = normalizeModel(model);
         String safeDevice = slugify(safeModel);
         String safeProduct = safeDevice;
-        String safeFingerprint = safeBrand + "/" + safeProduct + "/" + safeDevice + ":16/BBX1.260329.001/BBB001:user/release-keys";
-        String safeSerial = stableSerial(safeManufacturer + "_" + safeModel + "_" + userId);
-        String safeAndroidId = normalizeAndroidId(androidId, "bbb_custom_" + userId + "_" + safeDevice);
+        // buildToken is a fresh random value per creation (see saveUserProfile), so this instance's
+        // fingerprint never collides with another instance's, even one sharing the same
+        // manufacturer/model or the same reused userId slot.
+        String safeFingerprint = safeBrand + "/" + safeProduct + "/" + safeDevice + ":16/BBX1." + buildToken + "/BBB" + buildToken + ":user/release-keys";
+        String safeSerial = stableSerial(safeManufacturer + "_" + safeModel + "_" + userId + "_" + buildToken);
+        String safeAndroidId = normalizeAndroidId(androidId, "bbb_custom_" + userId + "_" + safeDevice + "_" + buildToken);
         return new DeviceSpoofProfile(
                 safeManufacturer,
                 safeBrand,
@@ -176,6 +201,13 @@ public final class DeviceSpoofManager {
                 safeSerial,
                 safeAndroidId
         );
+    }
+
+    private static String randomBuildToken() {
+        // 6 digits, e.g. "260329" - looks like a build date segment and keeps the fingerprint
+        // format plausible, but is randomized per instance creation instead of hardcoded.
+        int value = 100000 + RANDOM.nextInt(900000);
+        return String.valueOf(value);
     }
 
     private static String normalizeManufacturer(String manufacturer) {

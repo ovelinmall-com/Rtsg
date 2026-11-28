@@ -208,26 +208,56 @@ public class IAppOpsManagerProxy extends BinderInvocationStub {
 
     
     
+    // This proxy fires on every single noteOperation/checkOperation/startOperation call the
+    // virtual app's framework code makes - which on a busy, heavily-instrumented app like
+    // Facebook is constant, often from paths that block a calling thread on the result. The old
+    // code below re-resolved SyncNotedAppOp and its constructor with Class.forName() +
+    // reflection, and used a thrown NoSuchMethodException as normal control flow, on EVERY call.
+    // Exceptions are expensive on ART (they fill in a stack trace), so doing that on a hot path
+    // this frequent is a real, measurable source of UI-thread stutter, not just noise. Resolve
+    // everything once, statically, and never throw here in the common case.
+    private static final Class<?> SYNC_NOTED_APP_OP_CLASS;
+    private static final java.lang.reflect.Constructor<?> SYNC_NOTED_APP_OP_CTOR_2;
+    private static final java.lang.reflect.Constructor<?> SYNC_NOTED_APP_OP_CTOR_1;
+
+    static {
+        Class<?> cls = null;
+        java.lang.reflect.Constructor<?> ctor2 = null;
+        java.lang.reflect.Constructor<?> ctor1 = null;
+        try {
+            cls = Class.forName("android.app.SyncNotedAppOp");
+            try {
+                ctor2 = cls.getConstructor(int.class, String.class);
+            } catch (NoSuchMethodException ignored) {
+            }
+            if (ctor2 == null) {
+                try {
+                    ctor1 = cls.getConstructor(int.class);
+                } catch (NoSuchMethodException ignored) {
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        SYNC_NOTED_APP_OP_CLASS = cls;
+        SYNC_NOTED_APP_OP_CTOR_2 = ctor2;
+        SYNC_NOTED_APP_OP_CTOR_1 = ctor1;
+    }
+
     private static Object allowedResultFor(Method method) {
         Class<?> returnType = method.getReturnType();
         if (returnType == int.class || returnType == Integer.class) {
             return AppOpsManager.MODE_ALLOWED;
         }
-        
-        
-        try {
-            Class<?> syncNotedAppOpClass = Class.forName("android.app.SyncNotedAppOp");
-            if (returnType.isAssignableFrom(syncNotedAppOpClass)) {
-                try {
-                    return syncNotedAppOpClass
-                            .getConstructor(int.class, String.class)
-                            .newInstance(AppOpsManager.MODE_ALLOWED, (String) null);
-                } catch (NoSuchMethodException e) {
-                    return syncNotedAppOpClass.getConstructor(int.class).newInstance(AppOpsManager.MODE_ALLOWED);
+        if (SYNC_NOTED_APP_OP_CLASS != null && returnType.isAssignableFrom(SYNC_NOTED_APP_OP_CLASS)) {
+            try {
+                if (SYNC_NOTED_APP_OP_CTOR_2 != null) {
+                    return SYNC_NOTED_APP_OP_CTOR_2.newInstance(AppOpsManager.MODE_ALLOWED, (String) null);
                 }
+                if (SYNC_NOTED_APP_OP_CTOR_1 != null) {
+                    return SYNC_NOTED_APP_OP_CTOR_1.newInstance(AppOpsManager.MODE_ALLOWED);
+                }
+            } catch (Throwable ignored) {
             }
-        } catch (Throwable ignored) {
-            
         }
         return AppOpsManager.MODE_ALLOWED;
     }

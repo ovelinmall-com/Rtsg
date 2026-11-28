@@ -16,8 +16,8 @@ android {
         // The virtualization engine needs the host to target API 28 (it relies on pre-API-29
         // behaviour such as executing code from app-private storage). Sideload-only; not Play-eligible.
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.4.2"
+        versionCode = 17
+        versionName = "0.4.3"
         // A single Android process (and every sub-process it forks for a virtual instance) is
         // either 32-bit or 64-bit for its whole life — the OS picks that once, from the installed
         // package's own native libraries, and it cannot be mixed within one running app. There is

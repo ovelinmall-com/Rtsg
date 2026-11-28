@@ -82,9 +82,17 @@ class BlackBoxEngine(
                         for (pkg in GMS_PACKAGES) ensureNativeLibsForHostPackage(pkg)
                     }
                 }
-                if (identity != null) {
-                    DeviceSpoofManager.saveUserProfile(userId, identity.manufacturer, identity.model, randomAndroidId())
-                }
+                // Always save a fresh, randomized identity profile for this specific instance -
+                // not only when the user picked a custom one. This is what keeps every clone's
+                // Android ID/serial/build fingerprint unique per instance, including two clones
+                // that land on the same (reused) virtual-user slot after an earlier one was
+                // deleted, and two clones that share the same manufacturer/model identity.
+                DeviceSpoofManager.saveUserProfile(
+                    userId,
+                    identity?.manufacturer,
+                    identity?.model,
+                    randomAndroidId(),
+                )
                 dao.upsertInstance(
                     VirtualInstanceEntity(
                         id = UUID.randomUUID().toString(),

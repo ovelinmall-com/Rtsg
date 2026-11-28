@@ -613,7 +613,7 @@ fun SettingsScreen(
         item {
             val tapCount = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
             Text(
-                "Iskander · 0.4.2",
+                "Iskander · 0.4.3",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier
