@@ -470,9 +470,24 @@ public class BActivityThread extends IBActivityThread.Stub {
 
         VirtualRuntime.setupRuntime(processName, applicationInfo);
 
-        BRVMRuntime.get(BRVMRuntime.get().getRuntime()).setTargetSdkVersion(applicationInfo.targetSdkVersion);
+        // Reporting the cloned app's REAL targetSdkVersion here turns on every S+/T+/U+ platform
+        // "compat change" gate for it too - including ones this engine doesn't fully emulate. One
+        // concrete, confirmed example: PendingIntent.checkPendingIntent() throws a hard
+        // IllegalArgumentException ("requires FLAG_IMMUTABLE or FLAG_MUTABLE") purely client-side,
+        // before any call ever reaches our hooks, whenever the effective targetSdkVersion is 31+
+        // and the app creates a PendingIntent without one of those flags - which is exactly what
+        // crashed Messenger here. This is the same engine-needs-older-platform-behavior reasoning
+        // already used for the host app's own targetSdk=28 (see app/build.gradle.kts): cap the
+        // *compat* targetSdkVersion we report for cloned apps' processes at R (30), one below the
+        // S (31) cutoff where these newer hard-enforcement gates start, so cloned apps get the more
+        // lenient legacy compat behavior across the board instead of hitting individual gates one
+        // at a time. This does NOT change the app's real installed targetSdkVersion/behavior
+        // elsewhere (resources, manifest-declared features, etc.) - only this compat-framework
+        // signal used for runtime-enforced behavior changes.
+        int compatTargetSdk = Math.min(applicationInfo.targetSdkVersion, Build.VERSION_CODES.R);
+        BRVMRuntime.get(BRVMRuntime.get().getRuntime()).setTargetSdkVersion(compatTargetSdk);
         if (BuildCompat.isS()) {
-            BRCompatibility.get().setTargetSdkVersion(applicationInfo.targetSdkVersion);
+            BRCompatibility.get().setTargetSdkVersion(compatTargetSdk);
         }
 
         NativeCore.init(Build.VERSION.SDK_INT);

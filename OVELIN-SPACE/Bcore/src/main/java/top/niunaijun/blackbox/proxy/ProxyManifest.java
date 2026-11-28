@@ -6,7 +6,16 @@ import top.niunaijun.blackbox.BlackBoxCore;
 
 
 public class ProxyManifest {
-    public static final int FREE_COUNT = 50;
+    // Must match exactly how many "$Pn" proxy component slots (activity/service/provider/
+    // job-service) are declared in Bcore's AndroidManifest.xml. This used to be 50, which meant
+    // ~300 manifest-declared components for the host app's own package - a real, testable
+    // candidate for the persistent ":p0" NullPointerException some OEM ROMs (ITEL/Transsion,
+    // Android 14) throw deep inside their own ActivityThread.handleBindApplication while binding
+    // this app's own process, before any of our code runs. Cut down to a pool that's still far
+    // more than this app needs concurrently, to test whether manifest/component-count size is the
+    // trigger. If this device still crashes with the same exact stack trace after this change, the
+    // crash is unrelated to manifest size and is confirmed to be a device/ROM-level bug.
+    public static final int FREE_COUNT = 12;
 
     public static boolean isProxy(String msg) {
         return getBindProvider().equals(msg) || msg.contains("proxy_content_provider_");
