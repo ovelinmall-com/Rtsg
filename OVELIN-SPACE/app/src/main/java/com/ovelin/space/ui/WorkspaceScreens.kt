@@ -609,7 +609,7 @@ fun SettingsScreen(
             )
         }
         item {
-            val tapCount = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+            var tapCount by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
             Text(
                 "Iskander · 0.4.1",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -617,9 +617,9 @@ fun SettingsScreen(
                 modifier = Modifier
                     .padding(top = 4.dp)
                     .clickable {
-                        tapCount.intValue++
-                        if (tapCount.intValue >= 5) {
-                            tapCount.intValue = 0
+                        tapCount++
+                        if (tapCount >= 5) {
+                            tapCount = 0
                             onRunDiagnostics()
                         }
                     },

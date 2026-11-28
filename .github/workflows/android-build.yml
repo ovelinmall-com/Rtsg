@@ -1,9 +1,12 @@
-name: OVELIN GALLERY BUILD
+name: OVELIN SPACE Gallery APK
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'OVELIN-SPACE/**'
+      - '.github/workflows/android-build.yml'
   workflow_dispatch:
 
 permissions:
@@ -11,49 +14,64 @@ permissions:
 
 jobs:
   build:
-    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 21
-        uses: actions/setup-java@v5
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          set -o pipefail
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.0.12077973"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
 
-      - name: Install Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          test -x "$SDKMANAGER"
-
-          set +o pipefail
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          set -o pipefail
-
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;27.0.12077973"
-
       - name: Build APK
         working-directory: OVELIN-SPACE
-        run: gradle --no-daemon --stacktrace assembleDebug
+        run: |
+          gradle assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Find APK
+        id: apk
+        shell: bash
+        run: |
+          APK="$(find OVELIN-SPACE -type f \
+            -path '*/build/outputs/apk/*/*.apk' \
+            | head -n 1)"
+
+          if [ -z "$APK" ]; then
+            echo "No APK file was generated."
+            exit 1
+          fi
+
+          mkdir -p "$RUNNER_TEMP/ovelin-apk"
+          cp "$APK" "$RUNNER_TEMP/ovelin-apk/OVELIN-SPACE-GALLERY.apk"
+          echo "APK_PATH=$RUNNER_TEMP/ovelin-apk/OVELIN-SPACE-GALLERY.apk" >> "$GITHUB_ENV"
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: OVELIN-GALLERY-APK
-          path: OVELIN-SPACE/**/build/outputs/apk/**/*.apk
+          path: ${{ env.APK_PATH }}
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
