@@ -8,6 +8,7 @@ import com.ovelin.space.data.WorkspaceDao
 import java.io.File
 import java.util.UUID
 import java.util.zip.ZipFile
+import kotlin.random.Random
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -81,10 +82,9 @@ class BlackBoxEngine(
                         for (pkg in GMS_PACKAGES) ensureNativeLibsForHostPackage(pkg)
                     }
                 }
-                // Every clone gets its own random Android ID + serial + build fingerprint, generated
-                // once here and stored under this virtual user's id. (Previously clones created
-                // without a custom model shared one fixed Pixel 6 serial/fingerprint.)
-                DeviceSpoofManager.saveRandomProfile(userId, identity?.manufacturer, identity?.model)
+                if (identity != null) {
+                    DeviceSpoofManager.saveUserProfile(userId, identity.manufacturer, identity.model, randomAndroidId())
+                }
                 dao.upsertInstance(
                     VirtualInstanceEntity(
                         id = UUID.randomUUID().toString(),
@@ -325,6 +325,9 @@ class BlackBoxEngine(
             else -> null
         }
     }
+
+    private fun randomAndroidId(): String =
+        (1..16).joinToString("") { Random.nextInt(16).toString(16) }
 
     companion object {
         const val STATE_READY = "READY"

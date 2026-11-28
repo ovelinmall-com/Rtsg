@@ -42,10 +42,6 @@ public class IPhoneSubInfoProxy extends ClassInvocationStub {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        Object spoofedId = top.niunaijun.blackbox.fake.device.DeviceSpoofIds.intercept(method, args);
-        if (spoofedId != top.niunaijun.blackbox.fake.device.DeviceSpoofIds.NO_MATCH) {
-            return spoofedId;
-        }
         try {
             MethodParameterUtils.replaceFirstAppPkg(args);
             rewriteCallingPackage(args);
