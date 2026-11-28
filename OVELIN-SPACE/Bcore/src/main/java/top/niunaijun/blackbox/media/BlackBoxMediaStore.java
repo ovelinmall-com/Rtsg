@@ -9,7 +9,6 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
-import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.text.TextUtils;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.core.env.BEnvironment;
 import top.niunaijun.blackbox.utils.BzFileUtils;
 import top.niunaijun.blackbox.utils.Slog;
@@ -33,7 +33,10 @@ import top.niunaijun.blackbox.utils.Slog;
 public final class BlackBoxMediaStore {
     private static final String TAG = "BlackBoxMediaStore";
     private static final String DATABASE_NAME = "media-index.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
+
+    /** Every virtual user reads and writes this one id: there is a single gallery for all clones. */
+    public static final int SHARED_USER_ID = 0;
 
     private static final Object DB_LOCK = new Object();
     private static SQLiteDatabase sDatabase;
@@ -41,22 +44,33 @@ public final class BlackBoxMediaStore {
     private BlackBoxMediaStore() {
     }
 
-    // Clones used to see only their own private, empty sandbox folder here (BEnvironment's
-    // per-user dir), which is why a cloned app's gallery/picker was always empty no matter what
-    // permission was granted - the data it was scanning never existed. Real Android has exactly
-    // one shared gallery for every app; every virtual user now scans that same real, public
-    // storage root, so existing real photos are pickable and anything a clone saves is a real,
-    // visible file any gallery app (inside or outside Iskander) can see. userId is intentionally
-    // unused: there is only one physical root now.
+    // ONE shared gallery for every clone. It lives in this host app's own external-files
+    // directory (not the phone's real DCIM), so:
+    //   - a clone's gallery grid / "send photo" picker shows exactly this shared space, whichever
+    //     app was cloned (Messenger, WhatsApp, ...), and anything a clone saves lands here too;
+    //   - nothing a clone does (including delete) can touch the user's real photos;
+    //   - the host UI fills it by importing from the real gallery or via the system Share sheet.
+    // Images and videos get separate physical roots so each root is scanned/cleaned independently.
+    // userId is intentionally ignored everywhere in this class (see SHARED_USER_ID).
+    public static File getSharedGalleryBase() {
+        Context context = BlackBoxCore.getContext();
+        File dir = context.getExternalFilesDir(null);
+        if (dir == null) {
+            dir = context.getFilesDir();
+        }
+        return new File(dir, "SharedGallery");
+    }
+
     public static File getImagesRoot(int userId) {
-        return Environment.getExternalStorageDirectory();
+        return new File(getSharedGalleryBase(), "Images");
     }
 
     public static File getVideosRoot(int userId) {
-        return Environment.getExternalStorageDirectory();
+        return new File(getSharedGalleryBase(), "Videos");
     }
 
     public static List<BlackBoxMediaEntry> listMediaEntries(int userId) {
+        userId = SHARED_USER_ID;
         ensureFresh(userId, MediaStore.Files.FileColumns.MEDIA_TYPE_NONE);
         synchronized (DB_LOCK) {
             return queryEntriesLocked(getDatabaseLocked(),
@@ -67,6 +81,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static BlackBoxMediaEntry getEntry(int userId, long id) {
+        userId = SHARED_USER_ID;
         ensureFresh(userId, MediaStore.Files.FileColumns.MEDIA_TYPE_NONE);
         synchronized (DB_LOCK) {
             List<BlackBoxMediaEntry> entries = queryEntriesLocked(
@@ -80,6 +95,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static BlackBoxMediaEntry importMedia(Context context, int userId, Uri sourceUri, String mimeHint) throws IOException {
+        userId = SHARED_USER_ID;
         if (sourceUri == null) {
             throw new IOException("Missing source URI");
         }
@@ -100,9 +116,11 @@ public final class BlackBoxMediaStore {
             throw new IOException("Only images and videos are supported");
         }
 
-        File targetDir = mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
-                ? getVideosRoot(userId)
-                : getImagesRoot(userId);
+        File targetDir = new File(
+                mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+                        ? getVideosRoot(userId)
+                        : getImagesRoot(userId),
+                BlackBoxMediaContract.defaultRelativePathForMediaType(mediaType));
         if (!targetDir.exists()) {
             BzFileUtils.mkdirs(targetDir);
         }
@@ -120,6 +138,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static void rescanUser(int userId) {
+        userId = SHARED_USER_ID;
         ensureRoots(userId);
         synchronized (DB_LOCK) {
             SQLiteDatabase database = getDatabaseLocked();
@@ -129,6 +148,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static Cursor query(int userId, Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
+        userId = SHARED_USER_ID;
         int mediaType = resolveMediaType(uri);
         ensureFresh(userId, mediaType);
         synchronized (DB_LOCK) {
@@ -290,6 +310,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static Uri insert(int userId, Uri uri, ContentValues values) throws IOException {
+        userId = SHARED_USER_ID;
         int mediaType = resolveMediaType(uri);
         if (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_NONE) {
             mediaType = values.getAsInteger(BlackBoxMediaContract.COL_MEDIA_TYPE) != null
@@ -365,6 +386,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static int update(int userId, Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+        userId = SHARED_USER_ID;
         int mediaType = resolveMediaType(uri);
         synchronized (DB_LOCK) {
             SQLiteDatabase database = getDatabaseLocked();
@@ -379,6 +401,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static int delete(int userId, Uri uri, String selection, String[] selectionArgs) {
+        userId = SHARED_USER_ID;
         int mediaType = resolveMediaType(uri);
         synchronized (DB_LOCK) {
             SQLiteDatabase database = getDatabaseLocked();
@@ -397,6 +420,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static ParcelFileDescriptor openFile(int userId, Uri uri, String mode) throws IOException {
+        userId = SHARED_USER_ID;
         BlackBoxMediaEntry entry = getEntry(userId, BlackBoxMediaContract.getIdFromUri(uri));
         if (entry == null) {
             throw new IOException("Media entry not found");
@@ -409,6 +433,7 @@ public final class BlackBoxMediaStore {
     }
 
     public static String getType(int userId, Uri uri) {
+        userId = SHARED_USER_ID;
         BlackBoxMediaEntry entry = getEntry(userId, BlackBoxMediaContract.getIdFromUri(uri));
         if (entry == null) {
             int mediaType = resolveMediaType(uri);
@@ -715,6 +740,12 @@ public final class BlackBoxMediaStore {
         if (database.getVersion() == DATABASE_VERSION) {
             return;
         }
+        if (database.getVersion() != 0) {
+            // v1 indexed per-user rows that pointed at the phone's real storage. The shared
+            // gallery starts clean; the index is rebuilt from the shared folder on first use.
+            database.execSQL("DROP TABLE IF EXISTS " + BlackBoxMediaContract.TABLE_MEDIA);
+            database.execSQL("DROP TABLE IF EXISTS " + BlackBoxMediaContract.TABLE_SCAN_STATE);
+        }
         database.execSQL(
                 "CREATE TABLE IF NOT EXISTS " + BlackBoxMediaContract.TABLE_MEDIA + " ("
                         + BlackBoxMediaContract.COL_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -927,7 +958,10 @@ public final class BlackBoxMediaStore {
         if (TextUtils.isEmpty(suffix)) {
             return base;
         }
-        return base + suffix.replace(File.separatorChar, '/') + "/";
+        // Files already live under <root>/DCIM/Iskander/... (or Movies/Iskander/...), so the
+        // path below the root IS the relative path; don't prepend the default a second time.
+        String relative = suffix.replace(File.separatorChar, '/');
+        return relative.endsWith("/") ? relative : relative + "/";
     }
 
     private static String bucketDisplayName(String relativePath) {

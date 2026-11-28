@@ -73,6 +73,12 @@ public class ActivityManagerCommonProxy {
             if (intent.getParcelableExtra("_B_|_target_") != null) {
                 return method.invoke(who, args);
             }
+            // Photo/video pickers open the host's shared gallery (one gallery for all clones).
+            Intent galleryPick = top.niunaijun.blackbox.media.MediaPickerRedirect.redirect(intent);
+            if (galleryPick != null) {
+                replaceIntentArg(args, intent, galleryPick);
+                return method.invoke(who, args);
+            }
             if (ComponentUtils.isRequestInstall(intent)) {
                 File file = FileProviderHandler.convertFile(BActivityThread.getApplication(), intent.getData());
                 

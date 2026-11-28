@@ -16,75 +16,6 @@ import top.niunaijun.blackbox.utils.Slog;
 public class IAttributionSourceProxy extends ClassInvocationStub {
     public static final String TAG = "IAttributionSourceProxy";
 
-    // AttributionSource crosses process boundaries on nearly every permission-attributed Binder
-    // call a modern Android app makes (location, camera, mic, media, notifications...), so for a
-    // busy app like Facebook this constructor/hook fires constantly. Re-resolving the class, the
-    // right constructor (via chained NoSuchMethodException fallbacks - exceptions are expensive
-    // on ART) and the setUid method via reflection on every single call was a real, continuous
-    // tax on whatever thread triggered it, which is very often the UI thread. Resolve all of it
-    // once, statically, instead.
-    private static final Class<?> ATTR_SOURCE_CLASS;
-    private static final Constructor<?> ATTR_SOURCE_CTOR;
-    private static final int ATTR_SOURCE_CTOR_ARITY;
-    private static final Method ATTR_SOURCE_SET_UID;
-
-    static {
-        Class<?> cls = null;
-        Constructor<?> ctor = null;
-        int arity = 0;
-        Method setUid = null;
-        try {
-            cls = Class.forName("android.content.AttributionSource");
-            try {
-                ctor = cls.getDeclaredConstructor(int.class, String.class, String.class);
-                arity = 3;
-            } catch (NoSuchMethodException e1) {
-                try {
-                    ctor = cls.getDeclaredConstructor(int.class, String.class);
-                    arity = 2;
-                } catch (NoSuchMethodException e2) {
-                    try {
-                        ctor = cls.getDeclaredConstructor();
-                        arity = 0;
-                    } catch (NoSuchMethodException ignored) {
-                    }
-                }
-            }
-            if (ctor != null) {
-                ctor.setAccessible(true);
-            }
-            try {
-                setUid = cls.getDeclaredMethod("setUid", int.class);
-                setUid.setAccessible(true);
-            } catch (NoSuchMethodException ignored) {
-            }
-        } catch (Throwable ignored) {
-        }
-        ATTR_SOURCE_CLASS = cls;
-        ATTR_SOURCE_CTOR = ctor;
-        ATTR_SOURCE_CTOR_ARITY = arity;
-        ATTR_SOURCE_SET_UID = setUid;
-    }
-
-    private static Object createSafeAttributionSourceStatic(int uid, String packageName) {
-        if (ATTR_SOURCE_CTOR == null) {
-            return null;
-        }
-        try {
-            switch (ATTR_SOURCE_CTOR_ARITY) {
-                case 3:
-                    return ATTR_SOURCE_CTOR.newInstance(uid, packageName, null);
-                case 2:
-                    return ATTR_SOURCE_CTOR.newInstance(uid, packageName);
-                default:
-                    return ATTR_SOURCE_CTOR.newInstance();
-            }
-        } catch (Throwable e) {
-            Slog.e(TAG, "Failed to create safe AttributionSource: " + e.getMessage());
-            return null;
-        }
-    }
-
     public IAttributionSourceProxy() {
         super();
     }
@@ -133,7 +64,42 @@ public class IAttributionSourceProxy extends ClassInvocationStub {
         }
         
         private Object createSafeAttributionSource(int uid, String packageName) {
-            return createSafeAttributionSourceStatic(uid, packageName);
+            try {
+                
+                Class<?> attributionSourceClass = Class.forName("android.content.AttributionSource");
+                
+                
+                Constructor<?> constructor = null;
+                try {
+                    
+                    constructor = attributionSourceClass.getDeclaredConstructor(int.class, String.class, String.class);
+                } catch (NoSuchMethodException e) {
+                    try {
+                        
+                        constructor = attributionSourceClass.getDeclaredConstructor(int.class, String.class);
+                    } catch (NoSuchMethodException e2) {
+                        
+                        constructor = attributionSourceClass.getDeclaredConstructor();
+                    }
+                }
+                
+                if (constructor != null) {
+                    constructor.setAccessible(true);
+                    
+                    if (constructor.getParameterCount() == 3) {
+                        return constructor.newInstance(uid, packageName, null);
+                    } else if (constructor.getParameterCount() == 2) {
+                        return constructor.newInstance(uid, packageName);
+                    } else {
+                        return constructor.newInstance();
+                    }
+                }
+                
+                return null;
+            } catch (Exception e) {
+                Slog.e(TAG, "Failed to create safe AttributionSource: " + e.getMessage());
+                return null;
+            }
         }
     }
 
@@ -192,18 +158,29 @@ public class IAttributionSourceProxy extends ClassInvocationStub {
         }
         
         private void fixAttributionSourceUid(Object attributionSource) {
-            if (ATTR_SOURCE_SET_UID == null) {
-                return;
-            }
             try {
-                ATTR_SOURCE_SET_UID.invoke(attributionSource, BlackBoxCore.getHostUid());
+                
+                Class<?> attributionSourceClass = attributionSource.getClass();
+                Method setUidMethod = attributionSourceClass.getDeclaredMethod("setUid", int.class);
+                setUidMethod.setAccessible(true);
+                setUidMethod.invoke(attributionSource, BlackBoxCore.getHostUid());
+                
+                Slog.d(TAG, "Fixed AttributionSource UID to: " + BlackBoxCore.getHostUid());
             } catch (Exception e) {
                 Slog.w(TAG, "Could not fix AttributionSource UID: " + e.getMessage());
             }
         }
-
+        
         private Object createSafeAttributionSource(int uid, String packageName) {
-            return createSafeAttributionSourceStatic(uid, packageName);
+            try {
+                Class<?> attributionSourceClass = Class.forName("android.content.AttributionSource");
+                Constructor<?> constructor = attributionSourceClass.getDeclaredConstructor(int.class, String.class, String.class);
+                constructor.setAccessible(true);
+                return constructor.newInstance(uid, packageName, null);
+            } catch (Exception e) {
+                Slog.e(TAG, "Failed to create safe AttributionSource fallback: " + e.getMessage());
+                return null;
+            }
         }
     }
 }

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -77,7 +78,7 @@ import com.ovelin.space.engine.VirtualizationEngine
 import androidx.compose.material3.Switch
 import kotlinx.coroutines.launch
 
-private enum class WorkspaceTab { HOME, APPS, COPIES, FILES, SETTINGS }
+private enum class WorkspaceTab { HOME, APPS, COPIES, GALLERY, FILES, SETTINGS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -178,6 +179,7 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
         WorkspaceTab.HOME -> tr(isArabic, "لوحة التحكم", "Dashboard")
         WorkspaceTab.APPS -> tr(isArabic, "التطبيقات", "Apps")
         WorkspaceTab.COPIES -> tr(isArabic, "النسخ", "Instances")
+        WorkspaceTab.GALLERY -> tr(isArabic, "المعرض المشترك", "Shared gallery")
         WorkspaceTab.FILES -> tr(isArabic, "الملفات", "Files")
         WorkspaceTab.SETTINGS -> tr(isArabic, "الإعدادات", "Settings")
     }
@@ -239,6 +241,7 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
                         WorkspaceTab.HOME,
                         WorkspaceTab.APPS,
                         WorkspaceTab.COPIES,
+                        WorkspaceTab.GALLERY,
                         WorkspaceTab.FILES,
                         WorkspaceTab.SETTINGS,
                     )
@@ -313,6 +316,10 @@ fun OvelinSpaceApp(repository: WorkspaceRepository, engine: VirtualizationEngine
                             folderToRename = it
                             folderRenameText = it.name
                         },
+                    )
+                    WorkspaceTab.GALLERY -> SharedGalleryScreen(
+                        isArabic = isArabic,
+                        snackbarHostState = snackbarHostState,
                     )
                     WorkspaceTab.FILES -> FileManagerScreen(
                         repository = repository,
@@ -703,6 +710,7 @@ private fun tabIcon(tab: WorkspaceTab) = when (tab) {
     WorkspaceTab.HOME -> Icons.Outlined.Home
     WorkspaceTab.APPS -> Icons.Outlined.Apps
     WorkspaceTab.COPIES -> Icons.Outlined.Layers
+    WorkspaceTab.GALLERY -> Icons.Outlined.PhotoLibrary
     WorkspaceTab.FILES -> Icons.Outlined.Folder
     WorkspaceTab.SETTINGS -> Icons.Outlined.Settings
 }
@@ -711,6 +719,7 @@ private fun tabLabel(tab: WorkspaceTab, isArabic: Boolean) = when (tab) {
     WorkspaceTab.HOME -> tr(isArabic, "الرئيسية", "Home")
     WorkspaceTab.APPS -> tr(isArabic, "التطبيقات", "Apps")
     WorkspaceTab.COPIES -> tr(isArabic, "النسخ", "Copies")
+    WorkspaceTab.GALLERY -> tr(isArabic, "المعرض", "Gallery")
     WorkspaceTab.FILES -> tr(isArabic, "الملفات", "Files")
     WorkspaceTab.SETTINGS -> tr(isArabic, "الإعدادات", "Settings")
 }

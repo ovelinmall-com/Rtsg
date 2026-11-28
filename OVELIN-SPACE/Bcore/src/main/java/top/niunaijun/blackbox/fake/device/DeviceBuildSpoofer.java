@@ -27,12 +27,29 @@ public final class DeviceBuildSpoofer {
         setStaticStringField("SERIAL", profile.serial);
     }
 
+    /** BOARD / HARDWARE / ID / DISPLAY / BOOTLOADER / VERSION.INCREMENTAL for clones that have stored ids. */
+    public static void applyExtras(DeviceSpoofIds ids) {
+        if (ids == null) {
+            return;
+        }
+        setStaticStringField(Build.class, "BOARD", ids.board);
+        setStaticStringField(Build.class, "HARDWARE", ids.hardware);
+        setStaticStringField(Build.class, "ID", ids.buildId);
+        setStaticStringField(Build.class, "DISPLAY", ids.buildId);
+        setStaticStringField(Build.class, "BOOTLOADER", ids.bootloader);
+        setStaticStringField(Build.VERSION.class, "INCREMENTAL", ids.incremental);
+    }
+
     private static void setStaticStringField(String fieldName, String value) {
+        setStaticStringField(Build.class, fieldName, value);
+    }
+
+    private static void setStaticStringField(Class<?> owner, String fieldName, String value) {
         if (TextUtils.isEmpty(value)) {
             return;
         }
         try {
-            Field field = Build.class.getDeclaredField(fieldName);
+            Field field = owner.getDeclaredField(fieldName);
             field.setAccessible(true);
             try {
                 field.set(null, value);

@@ -6,6 +6,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.widget.Toast
+import kotlin.concurrent.thread
+import com.ovelin.space.ui.SharedGallery
+import kotlinx.coroutines.runBlocking
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,9 +41,41 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestStorageAccessIfNeeded()
+        handleIncomingShare(intent)
         setContent {
             OvelinSpaceTheme {
                 OvelinSpaceApp(repository, engine)
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingShare(intent)
+    }
+
+    /** Photos/videos shared to Iskander (from the real gallery or any app) go into the shared gallery. */
+    @Suppress("DEPRECATION")
+    private fun handleIncomingShare(intent: Intent?) {
+        if (intent == null) return
+        val uris: List<Uri> = when (intent.action) {
+            Intent.ACTION_SEND -> listOfNotNull(intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
+            Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
+            else -> return
+        }
+        // Consume it so a rotation / recreate doesn't import the same files again.
+        intent.action = Intent.ACTION_MAIN
+        if (uris.isEmpty()) return
+        val appContext = applicationContext
+        thread(name = "shared-gallery-import") {
+            val added = runBlocking { SharedGallery.import(appContext, uris) }
+            runOnUiThread {
+                Toast.makeText(
+                    appContext,
+                    "تمت إضافة $added من ${uris.size} إلى المعرض المشترك / Added $added of ${uris.size} to the shared gallery",
+                    Toast.LENGTH_LONG,
+                ).show()
             }
         }
     }

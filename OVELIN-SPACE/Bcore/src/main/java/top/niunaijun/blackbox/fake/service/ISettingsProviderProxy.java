@@ -240,6 +240,12 @@ public class ISettingsProviderProxy extends ClassInvocationStub {
             if (Settings.Secure.ANDROID_ID.equals(key) || "android_id".equalsIgnoreCase(key)) {
                 return DeviceSpoofManager.getAndroidIdForCurrentUser();
             }
+            if ("bluetooth_address".equals(key)) {
+                top.niunaijun.blackbox.fake.device.DeviceSpoofIds ids = top.niunaijun.blackbox.fake.device.DeviceSpoofIds.current();
+                if (ids != null && ids.bluetoothMac != null && !ids.bluetoothMac.isEmpty()) {
+                    return ids.bluetoothMac.toUpperCase();
+                }
+            }
         }
         return null;
     }
